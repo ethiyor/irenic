@@ -1,0 +1,36 @@
+# Import as a Render Blueprint from a PRIVATE, source-only GitHub repository.
+# Creates paid resources: review Render's displayed price before applying.
+services:
+  - type: web
+    name: road-salt-analyst
+    runtime: python
+    plan: 0.5c-512mb
+    numInstances: 1
+    buildCommand: pip install -r pipeline/requirements-hosted.lock
+    startCommand: python pipeline/run_hosted.py
+    healthCheckPath: /healthz
+    maxShutdownDelaySeconds: 300
+    autoDeployTrigger: off
+    disk:
+      name: outreach-private-state
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.12
+      - key: OUTREACH_MODE
+        value: demo
+      - key: OUTREACH_LIVE_ENABLED
+        value: "false"
+      - key: OUTREACH_RUN
+        value: /var/data/demo
+      - key: OUTREACH_STATE
+        value: /var/data/demo-service
+      - key: OUTREACH_ENCRYPTION_KEY
+        generateValue: true
+      - key: OUTREACH_ORIGIN
+        sync: false
+      - key: OUTREACH_ANALYSTS
+        sync: false
+      - key: OUTREACH_GOOGLE_WEB_CLIENT
+        sync: false

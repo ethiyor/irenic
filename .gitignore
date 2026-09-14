@@ -1,0 +1,8 @@
+private/
+.env
+.env.*
+*.sqlite3*
+*.db
+__pycache__/
+*.pyc
+.venv/
