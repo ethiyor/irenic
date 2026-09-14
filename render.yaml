@@ -9,7 +9,6 @@ services:
     buildCommand: pip install -r pipeline/requirements-hosted.lock
     startCommand: python pipeline/run_hosted.py
     healthCheckPath: /healthz
-    maxShutdownDelaySeconds: 300
     autoDeployTrigger: off
     disk:
       name: outreach-private-state

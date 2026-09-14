@@ -32,7 +32,7 @@ def main():
                            max_request_body_size=8192, channel_timeout=60)
     def stop(*_):
         stopping.set()
-        worker.join(timeout=270)
+        worker.join(timeout=25)
         server.close()
         raise SystemExit(0)
     signal.signal(signal.SIGTERM, stop)
