@@ -159,6 +159,44 @@ class LiveTests(unittest.TestCase):
         self.assertEqual(len(self.app.report()['incoming']), 1)
         self.assertEqual(len(self.api.sends), 2)
 
+    def test_routed_reply_preserves_four_attachments_and_replay_is_idempotent(self):
+        self.approve()
+        self.app.tick(self.api)
+        original = self.api.rows[self.api.sends[0]['id']]
+        sent = BytesParser(policy=policy.default).parsebytes(original['_raw'])
+        sent.replace_header('Message-ID', '<provider-rewritten@example.com>')
+        raw_sent = sent.as_bytes(policy=policy.SMTP)
+        original['_raw'] = raw_sent
+        original['raw'] = base64.urlsafe_b64encode(raw_sent).decode()
+        msg = EmailMessage()
+        msg['From'] = 'routed-buyer@example.com'
+        msg['To'] = self.config['sender']
+        msg['References'] = '<provider-rewritten@example.com> <internal-routing@example.com>'
+        msg['In-Reply-To'] = '<internal-routing@example.com>'
+        msg.set_content('Requested documents attached. Fixture only.')
+        for i in range(4):
+            msg.add_attachment(bytes([i, 0, 255, 13, 10]), maintype='application',
+                               subtype='octet-stream', filename=f'fixture-{i}.bin')
+        raw = msg.as_bytes()
+        mid = self.api.save(raw, 'different-thread', ['INBOX'])['id']
+        self.app.control('pause', 'Review routed reply before sending')
+        self.app.tick(self.api)
+        self.assertEqual(len(self.api.sends), 1)
+        self.assertEqual(self.app.report()['incoming'][0]['rid'], self.config['pilot_contact'])
+        self.app.classify(mid, 'reply', 'Routed buyer supplied four fixture files')
+        self.app.control('resume', 'Forward reviewed fixture reply')
+        self.app.tick(self.api)
+        forwarded = BytesParser(policy=policy.default).parsebytes(
+            self.api.rows[self.api.sends[1]['id']]['_raw'])
+        self.assertEqual([p.get_payload(decode=True) for p in forwarded.walk()
+                          if p.get_filename() == 'original-message.eml'], [raw])
+        self.app.tick(self.api)
+        self.assertEqual(len(self.api.sends), 2)
+        row = self.app.db.execute('SELECT state,due FROM requests WHERE id=?',
+                                  (self.config['pilot_contact'],)).fetchone()
+        self.assertEqual(tuple(row), ('held', None))
+        self.assertFalse(self.app.config()[0]['expanded'])
+
     def test_bounded_reminders_and_headers(self):
         self.approve()
         self.app.tick(self.api)

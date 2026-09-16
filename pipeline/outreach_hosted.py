@@ -22,6 +22,16 @@ MAIL = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapi
 
 
 def environment():
+    required = ['OUTREACH_ENCRYPTION_KEY', 'OUTREACH_ORIGIN', 'OUTREACH_RUN',
+                'OUTREACH_STATE', 'OUTREACH_ANALYSTS', 'OUTREACH_GOOGLE_WEB_CLIENT']
+    missing = [name for name in required if not os.environ.get(name, '').strip()]
+    if missing:
+        raise ValueError('Missing required hosted configuration: ' + ', '.join(missing))
+    mode = os.environ.get('OUTREACH_MODE', 'demo')
+    if mode not in {'demo', 'live'}:
+        raise ValueError('OUTREACH_MODE must be demo or live')
+    if os.environ.get('OUTREACH_LIVE_ENABLED', 'false') not in {'true', 'false'}:
+        raise ValueError('OUTREACH_LIVE_ENABLED must be true or false')
     if len(os.environ['OUTREACH_ENCRYPTION_KEY']) < 32:
         raise ValueError('Use a randomly generated encryption secret of at least 32 characters')
     return {'origin': os.environ['OUTREACH_ORIGIN'].rstrip('/'),
@@ -29,7 +39,7 @@ def environment():
             'key': base64.urlsafe_b64encode(hashlib.sha256(os.environ['OUTREACH_ENCRYPTION_KEY'].encode()).digest()),
             'allowlist': json.loads(os.environ['OUTREACH_ANALYSTS']),
             'google_client': json.loads(os.environ['OUTREACH_GOOGLE_WEB_CLIENT']),
-            'demo': os.environ.get('OUTREACH_MODE', 'demo') == 'demo',
+            'demo': mode == 'demo',
             'live_enabled': os.environ.get('OUTREACH_LIVE_ENABLED') == 'true'}
 
 
