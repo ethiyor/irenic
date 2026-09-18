@@ -78,11 +78,13 @@ class HostedTests(unittest.TestCase):
         self.assertEqual(self.post('pause', h, note='Pause for validation').status_code, 200)
         self.due()
         self.assertEqual(self.service.run_due(), 'succeeded')
-        self.assertEqual(read_status(self.run)['jobs'], [])
+        self.assertEqual(read_status(self.run)['jobs'][0]['state'], 'pending')
         self.post('resume', h, note='Resume demo')
         self.due()
         self.service.run_due()
         self.assertEqual(len(read_status(self.run)['jobs']), 1)
+        draft = self.service.drafts()[0]
+        self.assertEqual(self.post('approve_send', h, key=draft['key'], digest=draft['digest']).status_code, 200)
         self.post('demo_reply', h)
         self.service = create_app(self.cfg).extensions['outreach_service']
         self.due()
@@ -92,6 +94,55 @@ class HostedTests(unittest.TestCase):
         self.assertEqual(len(read_status(self.run)['jobs']), 2)
         self.assertIsNotNone(self.service.status()['last_success'])
         self.assertEqual(sum(r['enabled'] for r in read_status(self.run)['requests']), 1)
+
+    def test_exact_draft_edit_reject_roles_and_duplicate_send(self):
+        h = self.login()
+        self.assertEqual(self.post('prepare_drafts', h).status_code, 200)
+        d = self.service.drafts()[0]
+        self.assertEqual(self.post('approve_send', {}, key=d['key'], digest=d['digest']).status_code, 403)
+        reviewer = self.login('reviewer@example.com')
+        self.assertEqual(self.post('approve_send', reviewer, key=d['key'], digest=d['digest']).status_code, 403)
+        h = self.login()
+        self.assertEqual(self.post('edit_draft', h, key=d['key'], digest=d['digest'], subject=d['subject'], body='Reviewed new wording').status_code, 200)
+        self.assertEqual(self.post('approve_send', h, key=d['key'], digest=d['digest']).status_code, 400)
+        d = self.service.drafts()[0]
+        self.assertEqual(self.post('approve_send', h, key=d['key'], digest=d['digest']).status_code, 200)
+        self.assertEqual(self.post('approve_send', h, key=d['key'], digest=d['digest']).status_code, 400)
+        self.post('demo_reply', h)
+        self.post('prepare_drafts', h)
+        d = self.service.drafts()[0]
+        self.assertEqual(d['kind'], 'forward')
+        self.assertEqual(d['attachments'][0]['name'], 'original-message.eml')
+        self.assertEqual(self.post('reject_draft', h, key=d['key'], digest=d['digest']).status_code, 200)
+        self.post('prepare_drafts', h)
+        self.assertEqual(self.service.drafts(), [])
+        self.assertEqual(sum(j['state']=='sent' for j in read_status(self.run)['jobs']), 1)
+
+    def test_scheduler_never_sends_and_new_reply_blocks_approved_reminder(self):
+        h = self.login()
+        self.service.set_schedule(True, 'owner')
+        for _ in range(2):
+            self.due()
+            self.assertEqual(self.service.run_due(), 'succeeded')
+        self.assertTrue(all(j['state']=='pending' for j in read_status(self.run)['jobs']))
+        d = self.service.drafts()[0]
+        self.post('approve_send', h, key=d['key'], digest=d['digest'])
+        from outreach_live import Pilot
+        pilot = Pilot(self.run)
+        pilot.db.execute("UPDATE requests SET due='2000-01-01' WHERE stage=1")
+        pilot.close()
+        self.post('prepare_drafts', h)
+        reminder = self.service.drafts()[0]
+        self.assertEqual(reminder['stage'], 1)
+        self.post('demo_reply', h)
+        self.assertEqual(self.post('approve_send', h, key=reminder['key'], digest=reminder['digest']).status_code, 400)
+        for _ in range(2):
+            self.due()
+            self.service.run_due()
+        jobs = read_status(self.run)['jobs']
+        self.assertEqual(sum(j['state']=='sent' for j in jobs), 1)
+        self.assertEqual(sum(j['state']=='cancelled' for j in jobs), 1)
+        self.assertEqual(self.service.drafts()[0]['kind'], 'forward')
 
     def test_overlap_and_crash_stop(self):
         self.service.set_schedule(True, 'owner')

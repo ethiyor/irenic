@@ -102,7 +102,7 @@ def action(folder, demo, data):
                     raise ValueError('Run the demo once first; only one sample reply is available')
                 api.reply(body='SIMULATED REPLY — not a real county response.\n\nThank you for your request. Our office purchases through a cooperative. Please review the purchasing arrangement before combining volumes.\n\nNo source documents are attached to this demonstration.')
             else:
-                app.tick(api)
+                app.tick(api, data.get('approved_key'), data.get('approved_digest'), data.get('actor'))
             saved.update(rows={k: {n: v for n, v in r.items() if n != '_raw'} for k, r in api.rows.items()}, sends=api.sends)
             tmp = fixture.with_suffix('.tmp')
             tmp.write_text(json.dumps(saved))

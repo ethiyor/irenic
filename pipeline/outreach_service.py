@@ -21,6 +21,12 @@ class Service:
         read_status(self.run, demo)
         if demo and not (self.run/'console-demo.json').is_file():
             raise ValueError('Separate initialized demonstration required')
+        pilot = Pilot(self.run)
+        try:
+            with locked(self.run):
+                pilot.require_message_approval()
+        finally:
+            pilot.close()
         self.folder.mkdir(parents=True, exist_ok=True)
         with self.db() as db:
             db.executescript('''
@@ -103,6 +109,40 @@ class Service:
                 db.execute('DELETE FROM credential')
                 db.execute('UPDATE settings SET enabled=0,next_run=NULL WHERE id=1')
             self.event(actor, 'mailbox_disconnected_locally')
+
+    def draft_action(self, command, data, actor):
+        with locked(self.folder):
+            if command == 'prepare_drafts' or command == 'approve_send':
+                if not self.demo and (not self.live_enabled or not self.status()['mailbox_connected']):
+                    raise ValueError('Connect the approved live mailbox before scanning or sending.')
+                kwargs = dict(approved_key=data.get('key'), approved_digest=data.get('digest'), actor=actor) if command == 'approve_send' else {}
+                if command == 'approve_send' and (not kwargs['approved_key'] or not kwargs['approved_digest']):
+                    raise ValueError('Exact draft and digest required')
+                if self.demo:
+                    action(self.run, True, dict(command='demo_tick', **kwargs))
+                else:
+                    pilot = Pilot(self.run)
+                    try:
+                        pilot.tick(self.gmail(), **kwargs)
+                    finally:
+                        pilot.close()
+                with self.db() as db:
+                    db.execute('UPDATE settings SET last_scan=? WHERE id=1', (time.time(),))
+            else:
+                pilot = Pilot(self.run)
+                try:
+                    pilot.revise(data.get('key'), data.get('digest'), actor,
+                                 data.get('subject'), data.get('body'), command == 'reject_draft')
+                finally:
+                    pilot.close()
+            self.event(actor, command)
+
+    def drafts(self):
+        pilot = Pilot(self.run)
+        try:
+            return pilot.drafts()
+        finally:
+            pilot.close()
 
     def run_due(self, now=None):
         now = time.time() if now is None else now

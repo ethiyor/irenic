@@ -56,7 +56,7 @@ def create_app(settings=None):
         raise ValueError('Google Web application client JSON required; Desktop client is not supported')
     service = Service(cfg['state'], cfg['run'], cfg['key'], cfg['demo'], cfg['live_enabled'])
     app = Flask(__name__)
-    app.config.update(MAX_CONTENT_LENGTH=8192, TESTING=bool(cfg.get('testing')))
+    app.config.update(MAX_CONTENT_LENGTH=65536, TESTING=bool(cfg.get('testing')))
     app.extensions['outreach_service'] = service
     cookie = '__Host-outreach' if parsed.scheme == 'https' else 'outreach_test'
 
@@ -191,6 +191,7 @@ def create_app(settings=None):
     def status():
         state = read_status(service.run, service.demo)
         state['service'] = service.status()
+        state['drafts'] = service.drafts()
         return jsonify(state)
 
     @app.post('/api/action')
@@ -202,7 +203,9 @@ def create_app(settings=None):
         if command != 'classify':
             owner()
         try:
-            if command in {'schedule_on', 'schedule_off'}:
+            if command in {'prepare_drafts', 'approve_send', 'edit_draft', 'reject_draft'}:
+                service.draft_action(command, data, g.user['email'])
+            elif command in {'schedule_on', 'schedule_off'}:
                 service.set_schedule(command == 'schedule_on', g.user['email'])
             elif command == 'disconnect':
                 service.disconnect(g.user['email'])

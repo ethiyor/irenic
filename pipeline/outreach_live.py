@@ -338,14 +338,48 @@ class Pilot:
                 self.enqueue(c, key, r['rid'], 'forward', 0, to, 'Road-salt pilot reply: ' + r['rid'],
                              'A reply matched this procurement request. The original message is attached unchanged. Classification is pending operator review; attachments have not been processed.', original=r['raw'])
 
-    def tick(self, api):
+    def require_message_approval(self):
+        self.db.execute('CREATE TABLE IF NOT EXISTS approval_policy(id INTEGER PRIMARY KEY)')
+        self.db.execute('INSERT OR IGNORE INTO approval_policy VALUES(1)')
+
+    def drafts(self):
+        result = []
+        for j in self.db.execute("SELECT * FROM jobs WHERE state='pending' ORDER BY key"):
+            msg = BytesParser(policy=policy.default).parsebytes(j['raw'])
+            body = msg.get_body(preferencelist=('plain',))
+            result.append(dict(key=j['key'], digest=sha(j['raw']), kind=j['kind'], stage=j['stage'],
+                recipient=j['recipient'], subject=str(msg['Subject']), body=body.get_content() if body else '',
+                attachments=[dict(name=a.get_filename(), bytes=len(a.get_payload(decode=True) or b''),
+                                  sha256=sha(a.get_payload(decode=True) or b'')) for a in msg.iter_attachments()]))
+        return result
+
+    def revise(self, key, digest, actor, subject=None, body=None, reject=False):
+        with locked(self.folder):
+            j = self.db.execute("SELECT * FROM jobs WHERE key=? AND state='pending'", (key,)).fetchone()
+            if not j or sha(j['raw']) != digest:
+                raise ValueError('Draft changed or is no longer awaiting approval. Refresh and review again.')
+            if reject:
+                self.db.execute("UPDATE jobs SET state='rejected' WHERE key=?", (key,))
+            else:
+                if (not isinstance(subject, str) or not subject.strip() or len(subject)>300
+                    or any(c in subject for c in '\r\n') or not isinstance(body, str)
+                    or not body.strip() or len(body)>12000):
+                    raise ValueError('Provide a subject and message within the length limits.')
+                msg = BytesParser(policy=policy.SMTP).parsebytes(j['raw'])
+                msg.replace_header('Subject', subject)
+                msg.get_body(preferencelist=('plain',)).set_content(body)
+                self.db.execute('UPDATE jobs SET raw=? WHERE key=?', (msg.as_bytes(), key))
+            self.log('draft_rejected' if reject else 'draft_edited', actor+': '+key)
+
+    def tick(self, api, approved_key=None, approved_digest=None, actor=None):
         with locked(self.folder):
             campaign, c = self.config()
             if api.profile() != c['sender'].lower():
                 raise ValueError('Authenticated mailbox differs from approved sender')
             self.reconcile(api, c)
             self.sync(api, campaign, c)
-            if campaign['paused']:
+            gated = bool(self.db.execute("SELECT 1 FROM sqlite_master WHERE name='approval_policy'").fetchone())
+            if campaign['paused'] and not gated:
                 return
             day = datetime.now(ZoneInfo(c['timezone'])).date().isoformat()
             for r in self.db.execute("SELECT * FROM requests WHERE state IN ('queued','waiting')").fetchall():
@@ -361,13 +395,32 @@ class Pilot:
                 body = request['body'] if r['stage'] == 0 else c['followup_text'] + '\n\n' + request['body']
                 self.enqueue(c, f'request:{r["id"]}:{r["stage"]}', r['id'], 'request', r['stage'], request['to'], request['subject'], body,
                              reference=original['provider_rfcid'] if original else None)
+            if campaign['paused']:
+                if approved_key:
+                    raise ValueError('Campaign paused. Resume before approving a send.')
+                return
+            if gated and not approved_key:
+                return
+            if gated:
+                chosen = self.db.execute("SELECT * FROM jobs WHERE key=? AND state='pending'", (approved_key,)).fetchone()
+                if not chosen or sha(chosen['raw']) != approved_digest or not actor:
+                    raise ValueError('Draft changed or was already handled. Refresh and review again.')
             for j in self.db.execute("SELECT * FROM jobs WHERE state='pending' ORDER BY key").fetchall():
+                if gated and j['key'] != approved_key:
+                    continue
                 # Refresh again immediately before each send. A new reply cancels queued reminders.
                 self.sync(api, campaign, c)
                 r = self.db.execute('SELECT * FROM requests WHERE id=?', (j['rid'],)).fetchone()
                 if j['kind'] == 'request' and r['state'] not in {'queued', 'waiting'}:
                     self.db.execute("UPDATE jobs SET state='cancelled' WHERE key=?", (j['key'],))
+                    if gated:
+                        raise ValueError('A reply or hold cancelled this request. Nothing was sent.')
                     continue
+                if j['kind'] == 'request' and (r['stage'] != j['stage'] or (r['due'] and r['due'] > day)
+                    or (not campaign['expanded'] and r['id'] != c['pilot_contact'])):
+                    raise ValueError('Request is no longer eligible. Refresh the queue.')
+                if gated:
+                    self.log('message_approved', actor+': '+j['key']+': '+approved_digest)
                 self.db.execute("UPDATE jobs SET state='uncertain' WHERE key=?", (j['key'],))
                 self.log('send_attempt', j['key'])
                 # Intent is committed before network I/O. Any exception/crash leaves it uncertain.
