@@ -201,6 +201,26 @@ class HostedTests(unittest.TestCase):
             self.assertEqual(self.get('/oauth/callback?state='+state+'&code=test').status_code, 400)
         flow.fetch_token.assert_called_once()
 
+    def test_approver_google_login_is_identity_only(self):
+        from urllib.parse import parse_qs, urlsplit
+        self.cfg['allowlist']['approver@example.com'] = 'approver'
+        response = self.get('/login')
+        query = parse_qs(urlsplit(response.location).query)
+        self.assertEqual(set(query['scope'][0].split()), {'openid', 'https://www.googleapis.com/auth/userinfo.email'})
+        self.assertEqual(query['access_type'], ['online'])
+        state = query['state'][0]
+        with self.service.db() as db:
+            pending = json.loads(db.execute('SELECT data FROM oauth').fetchone()[0])
+        claims = {'email': 'approver@example.com', 'email_verified': True, 'nonce': pending['nonce']}
+        with patch('outreach_hosted.Flow.from_client_config', return_value=Mock(credentials=SimpleNamespace(id_token='token'))), patch('outreach_hosted.id_token.verify_oauth2_token', return_value=claims), patch.object(self.service, 'save_credentials') as save:
+            self.assertEqual(self.get('/oauth/callback?state='+state+'&code=test').status_code, 302)
+            session = self.get('/api/session').json
+            self.assertEqual(session['role'], 'approver')
+            self.assertEqual(self.get('/api/status').status_code, 200)
+            headers = {'Origin': self.cfg['origin'], 'X-CSRF-Token': session['csrf']}
+            self.assertEqual(self.client.post('/api/connect', base_url=self.cfg['origin'], headers=headers).status_code, 403)
+            save.assert_not_called()
+
     def test_no_unknown_account_or_wrong_nonce(self):
         from urllib.parse import parse_qs, urlsplit
         for email, nonce in [('outsider@example.com', 'valid'), ('owner@example.com', 'wrong')]:
