@@ -91,36 +91,77 @@ def validate(config):
             raise ValueError('Invalid subject')
 
 
+class MailReadError(RuntimeError):
+    def __init__(self, kind):
+        self.kind = kind
+        super().__init__('Mailbox read stopped: ' + kind)
+
+
 class Gmail:
     """Short-lived bearer token comes from environment; never persisted or printed.
 
     No automatic POST retries. A network failure requires reconciliation.
     """
-    def __init__(self, token=None):
+    def __init__(self, token=None, deadline=None):
         self.token = token or os.environ.get('ROAD_SALT_GMAIL_ACCESS_TOKEN')
         if not self.token:
             raise ValueError('Set ROAD_SALT_GMAIL_ACCESS_TOKEN privately before live operations')
         self._next_call = 0.0
+        self.deadline = deadline
+        self.read_calls = 0
+        self.read_retries = 0
+
+    def remaining(self):
+        remaining = 30 if self.deadline is None else self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise MailReadError('time_budget')
+        return min(30, remaining)
 
     def api(self, path, params=None, body=None):
         # Gmail's May 2026 quota is 6,000 units/user/minute. Pace this
         # single-worker client to at most 3,000; never retry a send here.
         cost = 100 if body is not None else (20 if path.startswith('messages/') else 5)
         now = time.monotonic()
-        time.sleep(max(0.0, self._next_call - now))
+        delay = max(0.0, self._next_call - now)
+        if self.deadline is not None and delay >= self.remaining():
+            raise MailReadError('time_budget')
+        time.sleep(delay)
         self._next_call = time.monotonic() + cost / 50.0
         url = 'https://gmail.googleapis.com/gmail/v1/users/me/' + path
         if params:
             url += '?' + urlencode(params, doseq=True)
         req = Request(url, data=canonical(body) if body is not None else None,
                       headers={'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json'})
-        try:
-            with urlopen(req, timeout=30) as response:
-                return json.load(response)
-        except HTTPError as exc:
-            raise RuntimeError(f'Gmail HTTP {exc.code}; operation stopped') from None
-        except (URLError, TimeoutError):
-            raise RuntimeError('Gmail network result uncertain; operation stopped') from None
+        for attempt in range(3 if body is None else 1):
+            try:
+                if body is None:
+                    self.read_calls += 1
+                with urlopen(req, timeout=self.remaining()) as response:
+                    chunks, size = [], 0
+                    reader = getattr(response, 'read1', response.read)
+                    while True:
+                        self.remaining()
+                        chunk = reader(65536)
+                        if not chunk:
+                            return json.loads(b''.join(chunks))
+                        size += len(chunk)
+                        if size > 24*1024*1024:
+                            raise MailReadError('response_limit')
+                        chunks.append(chunk)
+            except HTTPError as exc:
+                kind = 'quota' if exc.code in {403, 429} else 'consent' if exc.code == 401 else 'provider'
+                retry = exc.code in {429, 500, 502, 503, 504}
+            except (URLError, TimeoutError):
+                kind, retry = 'connection', True
+            if body is not None:
+                raise RuntimeError('Gmail send outcome uncertain; reconcile before any further action') from None
+            if not retry or attempt == 2:
+                raise MailReadError(kind) from None
+            delay = 2 ** attempt
+            if self.deadline is not None and delay >= self.remaining():
+                raise MailReadError('time_budget')
+            self.read_retries += 1
+            time.sleep(delay)
 
     def profile(self):
         return self.api('profile')['emailAddress'].lower()

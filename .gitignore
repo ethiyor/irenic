@@ -3,6 +3,8 @@ private/
 .env.*
 *.sqlite3*
 *.db
+*.fernet
+RECOVERY_HOLD
 __pycache__/
 *.pyc
 .venv/

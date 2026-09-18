@@ -95,6 +95,9 @@ def create_app(settings=None):
 
     @app.before_request
     def guard():
+        g.csp_nonce = secrets.token_urlsafe(24)
+        if request.path == '/healthz':
+            return None
         if request.host != parsed.netloc and request.path != '/healthz':
             abort(400)
         with auth_service.db() as db:
@@ -117,8 +120,11 @@ def create_app(settings=None):
 
     @app.after_request
     def security(response):
+        nonce = getattr(g, 'csp_nonce', secrets.token_urlsafe(24))
+        if response.mimetype == 'text/html' and not response.direct_passthrough:
+            response.set_data(response.get_data().replace(b'nonce="console"', ('nonce="'+nonce+'"').encode()))
         response.headers.update({'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
-            'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "default-src 'none'; script-src 'nonce-console'; style-src 'nonce-console'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"})
+            'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': f"default-src 'none'; script-src 'nonce-{nonce}'; style-src 'nonce-{nonce}'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"})
         if parsed.scheme == 'https':
             response.headers['Strict-Transport-Security'] = 'max-age=31536000'
         return response
@@ -130,6 +136,11 @@ def create_app(settings=None):
     @app.errorhandler(413)
     def rejected(error):
         return jsonify(error='Sign in or check your permissions and request.'), error.code
+
+    @app.errorhandler(sqlite3.Error)
+    @app.errorhandler(OSError)
+    def storage_unavailable(error):
+        return jsonify(error='Private storage is unavailable. Contact the owner; do not retry a send until its outcome is reconciled.'), 503
 
     def owner():
         if not g.user or g.workspace['role'] != 'owner':
@@ -237,7 +248,16 @@ def create_app(settings=None):
         state['drafts'] = service.drafts()
         state['workspace'] = g.workspace
         state['workflow'] = workflow(service, state)
+        if g.workspace['role'] == 'owner':
+            from outreach_operations import operations
+            state['operations'] = operations(service)
         return jsonify(state)
+
+    @app.get('/api/operations')
+    def operational_status():
+        owner()
+        from outreach_operations import operations
+        return jsonify(operations(service))
 
     @app.get('/api/evidence/<mid>')
     @app.get('/api/evidence/<mid>/<file_id>')

@@ -18,6 +18,7 @@ class Workspaces:
         self.cfg, self.original = cfg, original
         self.services = {'shared': original}
         self.personal = {}
+        self.cursor = 0
         if not cfg.get('personal_workspaces'):
             return
         if cfg['demo']:
@@ -117,7 +118,17 @@ class Workspaces:
                 entries = list(self.services.items())
         else:
             entries = list(self.services.items())
-        for wid, service in entries:
+        # Rotate the first tenant each cycle; cap a cycle between tenant runs.
+        # Each live Gmail client independently bounds network reads to 120s.
+        if not entries:
+            return
+        start = self.cursor % len(entries)
+        entries = entries[start:] + entries[:start]
+        began = time.monotonic()
+        for index, (wid, service) in enumerate(entries):
+            if index and time.monotonic() - began >= 150:
+                break
+            self.cursor = (start + index + 1) % len(entries)
             try:
                 if wid != 'shared':
                     email = read_status(service.run)['sender']
@@ -126,6 +137,8 @@ class Workspaces:
                 service.run_due()
             except Exception:
                 logging.error('Workspace scheduler unavailable; no private details logged.')
+        else:
+            self.cursor = (start + 1) % len(entries)
 
 
 def add_request(service, data, actor):

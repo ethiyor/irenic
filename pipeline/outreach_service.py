@@ -11,6 +11,8 @@ from google.oauth2.credentials import Credentials
 
 from outreach_console import action, read_status
 from outreach_live import Gmail, Pilot, locked
+from outreach_live import MailReadError
+from google.auth.exceptions import RefreshError
 
 
 class Service:
@@ -81,17 +83,25 @@ class Service:
             db.execute('INSERT OR REPLACE INTO credential VALUES(1,?)', (encrypted,))
 
     def gmail(self):
+        if (self.folder/'RECOVERY_HOLD').exists():
+            raise ValueError('Restored workspace is quarantined; outbound mail is disabled')
         with self.db() as db:
             row = db.execute('SELECT encrypted FROM credential WHERE id=1').fetchone()
         if not row:
             raise ValueError('Mailbox connection required')
         info = json.loads(self.cipher.decrypt(row['encrypted']))
         credentials = Credentials.from_authorized_user_info(info)
-        credentials.refresh(Request())
+        class BoundedRequest(Request):
+            def __call__(self, *args, **kwargs):
+                kwargs['timeout'] = 30
+                return super().__call__(*args, **kwargs)
+        credentials.refresh(BoundedRequest())
         self.save_credentials(credentials)
-        return Gmail(credentials.token)
+        return Gmail(credentials.token, deadline=time.monotonic()+120)
 
     def set_schedule(self, enabled, actor):
+        if enabled and (self.folder/'RECOVERY_HOLD').exists():
+            raise ValueError('Restore reconciliation required before scheduling')
         with locked(self.folder):
             state = self.status()
             if enabled and not self.demo and (not self.live_enabled or not state['mailbox_connected']):
@@ -134,6 +144,8 @@ class Service:
             api.send(msg.as_bytes())
 
     def draft_action(self, command, data, actor):
+        if (self.folder/'RECOVERY_HOLD').exists():
+            raise ValueError('Restore reconciliation required before campaign actions')
         with locked(self.folder):
             if command == 'prepare_drafts' or command == 'approve_send':
                 if not self.demo and (not self.live_enabled or not self.status()['mailbox_connected']):
@@ -168,6 +180,8 @@ class Service:
             pilot.close()
 
     def run_due(self, now=None):
+        if (self.folder/'RECOVERY_HOLD').exists():
+            return 'recovery_hold'
         now = time.time() if now is None else now
         with self.db() as db:
             db.execute('UPDATE settings SET last_heartbeat=? WHERE id=1', (time.time(),))
@@ -199,7 +213,16 @@ class Service:
                                     db.execute('UPDATE settings SET last_scan=? WHERE id=1', (time.time(),))
                         pilot = TrackedPilot(self.run)
                         try:
-                            pilot.tick(self.gmail())
+                            api = self.gmail()
+                            began = time.monotonic()
+                            try:
+                                pilot.tick(api)
+                            finally:
+                                # Counts only; never mailbox identities or message contents.
+                                with self.db() as db:
+                                    db.execute('CREATE TABLE IF NOT EXISTS scan_profile(id INTEGER PRIMARY KEY, seconds REAL, calls INTEGER, retries INTEGER)')
+                                    db.execute('INSERT OR REPLACE INTO scan_profile VALUES(1,?,?,?)',
+                                        (round(time.monotonic()-began, 3), getattr(api, 'read_calls', 0), getattr(api, 'read_retries', 0)))
                         finally:
                             pilot.close()
                     finished = time.time()
@@ -208,10 +231,11 @@ class Service:
                                    (finished, finished+self.interval))
                     self.event('scheduler', 'run_succeeded')
                     return 'succeeded'
-                except Exception:
+                except Exception as exc:
                     # Never include provider responses, credentials or email content in logs/UI.
                     with self.db() as db:
-                        db.execute("UPDATE settings SET active=0,enabled=0,next_run=NULL,error='Run stopped. Check mailbox authorization and worker ledger before re-enabling.' WHERE id=1")
+                        category = exc.kind if isinstance(exc, MailReadError) else 'consent' if isinstance(exc, RefreshError) else 'storage' if isinstance(exc, (OSError, sqlite3.Error)) else 'review'
+                        db.execute("UPDATE settings SET active=0,enabled=0,next_run=NULL,error=? WHERE id=1", ('Run stopped: '+category+'. Owner recovery required before re-enabling.',))
                     self.event('scheduler', 'run_failed_schedule_disabled')
                     return 'failed'
         except FileExistsError:

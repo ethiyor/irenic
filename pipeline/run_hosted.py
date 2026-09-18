@@ -37,6 +37,8 @@ def main():
         while not stopping.is_set():
             try:
                 service.run_due()
+                from outreach_backup import automatic
+                automatic(service)
             except Exception:
                 logging.error('Scheduler unavailable; inspect service state. No provider details logged.')
             stopping.wait(15)
