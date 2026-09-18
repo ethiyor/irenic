@@ -56,6 +56,8 @@ td { font-size: 14px; }
 }
 
 /* Milestone 26: presentation only. */
+body:not(.workspace-ready) main > section { display: none; }
+#overview { min-height: 260px; }
 :root { --rs-accent: var(--rs-teal); }
 body { background: var(--rs-canvas); }
 header { padding-top: 24px; padding-bottom: 24px; }
@@ -89,7 +91,7 @@ pre { font-size: 14px; }
 
 </style></head><body><a class="skip-link" href="#main-content">Skip to workspace</a>
 <header><div class="bar"><div><p>ROAD SALT CONTRACT MONITOR</p><h1>Analyst workspace</h1><p>Review outreach. Track responses. Keep publication under review.</p></div><span class="badge" id="mode">PRIVATE WORKSPACE</span></div></header>
-<main id="main-content" tabindex="-1"><div class="bar"><div><strong id="campaign">Loading campaign…</strong><div class="muted" id="identity"></div></div><div class="actions"><button id="refresh">Refresh status</button><button id="logout">Sign out</button></div></div>
+<main id="main-content" tabindex="-1" aria-busy="true"><div class="bar"><div><strong id="campaign">Loading campaign…</strong><div class="muted" id="identity"></div></div><div class="actions"><button id="refresh">Refresh status</button><button id="logout">Sign out</button></div></div>
 <label for="workspace-select">Workspace</label><select id="workspace-select" aria-label="Workspace"></select><p class="muted" id="workspace-help"></p>
 <div class="notice" id="notice">Loading the private workspace. Campaign status will appear shortly.</div>
 <div id="feedback" role="status" aria-live="polite"></div>
@@ -149,5 +151,5 @@ $('outcomes').replaceChildren();for(const j of s.workflow.jobs) $('outcomes').ap
 }
 document.addEventListener('input',e=>{if(e.target.matches('textarea,input:not([type=checkbox])')){dirty=true;freshness()}});document.addEventListener('change',e=>{if(e.target.matches('#replies select')){dirty=true;freshness()}});window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});$('discard').onclick=()=>{dirty=false;refresh(true)};
 setInterval(()=>{freshness();if(!document.hidden)refresh()},30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
-async function start(){try{const user=await api('/api/session');csrf=user.csrf;role=user.role;for(const name of Object.keys(groups)){if(name==='Settings'&&role!=='owner')continue;const b=el('button',name);b.onclick=()=>showView(name);$('workflow-nav').append(b)}showView('Overview');for(const [i,name] of ['Requests','Inbox & documents','Activity','Requests'].entries()){const card=document.querySelectorAll('.card')[i];card.tabIndex=0;card.setAttribute('role','button');card.onclick=()=>showView(name);card.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();showView(name)}}} $('workspace-select').replaceChildren();for(const w of user.workspaces){const option=el('option',w.name+' · '+w.role);option.value=w.id;option.selected=w.id===user.workspace.id;$('workspace-select').append(option)}$('workspace-help').textContent=user.workspace.id==='shared'?'Shared campaign: actions use its existing connected mailbox.':'Private workspace: only your account can access these records. Connect your own Gmail to use mail features.';await refresh()}catch(e){$('feedback').dataset.error='true';$('feedback').textContent=e.message}}start();
+async function start(){try{const user=await api('/api/session');csrf=user.csrf;role=user.role;for(const name of Object.keys(groups)){if(name==='Settings'&&role!=='owner')continue;const b=el('button',name);b.onclick=()=>showView(name);$('workflow-nav').append(b)}showView('Overview');for(const [i,name] of ['Requests','Inbox & documents','Activity','Requests'].entries()){const card=document.querySelectorAll('.card')[i];card.tabIndex=0;card.setAttribute('role','button');card.onclick=()=>showView(name);card.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();showView(name)}}} $('workspace-select').replaceChildren();for(const w of user.workspaces){const option=el('option',w.name+' · '+w.role);option.value=w.id;option.selected=w.id===user.workspace.id;$('workspace-select').append(option)}$('workspace-help').textContent=user.workspace.id==='shared'?'Shared campaign: actions use its existing connected mailbox.':'Private workspace: only your account can access these records. Connect your own Gmail to use mail features.';await refresh()}catch(e){showView('Overview');$('campaign').textContent='Workspace unavailable';$('notice').textContent='Reload the page to retry signing in and loading the workspace.';$('feedback').dataset.error='true';$('feedback').textContent=e.message}finally{document.body.classList.add('workspace-ready');$('main-content').setAttribute('aria-busy','false')}}start();
 </script></body></html>
