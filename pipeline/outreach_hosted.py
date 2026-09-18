@@ -5,10 +5,13 @@ import hashlib
 import os
 from pathlib import Path
 import secrets
+import sqlite3
 import time
 from urllib.parse import urlsplit
 
-from flask import Flask, abort, g, jsonify, redirect, request
+from flask import Flask, abort, g, jsonify, redirect, request, send_file
+from io import BytesIO
+from outreach_evidence import evidence
 from werkzeug.local import LocalProxy
 from outreach_workspaces import Workspaces, add_request
 from google.auth.transport.requests import Request as GoogleRequest
@@ -233,6 +236,30 @@ def create_app(settings=None):
         state['drafts'] = service.drafts()
         state['workspace'] = g.workspace
         return jsonify(state)
+
+    @app.get('/api/evidence/<mid>')
+    @app.get('/api/evidence/<mid>/<file_id>')
+    def review_evidence(mid, file_id=None):
+        if cfg.get('evidence_enabled', os.environ.get('OUTREACH_EVIDENCE_ENABLED', 'true') == 'true') is False:
+            return jsonify(error='Evidence review is temporarily disabled.'), 404
+        try:
+            info, raw, files = evidence(service.run, mid)
+        except LookupError as error:
+            return jsonify(error=str(error)), 404
+        except ValueError as error:
+            return jsonify(error=str(error)), 413
+        except (sqlite3.Error, OSError, RecursionError):
+            return jsonify(error='Stored evidence is temporarily unavailable or malformed. Retry or contact the workspace owner.'), 503
+        if file_id is None:
+            return jsonify(info)
+        if file_id == 'original':
+            data, name = raw, 'original-message.eml'
+        elif file_id in files:
+            data, name = files[file_id]
+        else:
+            return jsonify(error='Attachment unavailable or quarantined. Refresh the evidence view.'), 404
+        return send_file(BytesIO(data), mimetype='application/octet-stream', as_attachment=True,
+                         download_name=name, conditional=False, etag=False)
 
     @app.post('/api/action')
     def perform():

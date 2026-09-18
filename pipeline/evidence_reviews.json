@@ -1,0 +1,18 @@
+{
+  "133119ddd73d60119301bd6d2095c290de3f43483718086ea592e8136e2e1655": {
+    "decision": "exclude",
+    "reason": "Signed Group 2 water-treatment agreement; no road-salt award. Reviewed 2026-09-16; annual quantity mapping held."
+  },
+  "4e22d65215024aa01bcd171358b002b941b273f81bfc303cce1f33219c7a172d": {
+    "decision": "include",
+    "reason": "Signed Group 1 road-salt agreement; scope, term and signatures. Reviewed 2026-09-16; annual quantity mapping held."
+  },
+  "0bdb6d46b012804cbc07b3dcbf8a8385d7a4e3b5063bf25bcbb6abbc35e31b43": {
+    "decision": "include",
+    "reason": "Award motion: road-salt award evidence; water-treatment figures excluded. Reviewed 2026-09-16; annual quantity mapping held."
+  },
+  "62ae522f647d9c4e62542b6d4e006d3332568e2c586272a72b754522a0f4b955": {
+    "decision": "include",
+    "reason": "Awarded-vendor labels and bid comparison; do not treat losing quotes as awards. Reviewed 2026-09-16; annual quantity mapping held."
+  }
+}
