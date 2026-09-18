@@ -16,7 +16,7 @@ def main():
     if cfg['demo'] and not (Path(cfg['run'])/'live.sqlite3').exists():
         initialize_demo(cfg['run'])
     app = create_app(cfg)
-    service = app.extensions['outreach_service']
+    service = app.extensions['outreach_workspaces']
     stopping = threading.Event()
     def scheduler():
         while not stopping.is_set():

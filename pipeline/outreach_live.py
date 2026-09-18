@@ -76,9 +76,10 @@ def validate(config):
     if config['followup_business_days'] != 5 or config['max_followups'] != 2:
         raise ValueError('This bounded pilot supports five business days and two follow-ups')
     rows = config['requests']
-    if len(rows) != 5 or len({r['id'] for r in rows}) != 5 or len({r['to'].lower() for r in rows}) != 5:
+    personal = config.get('workspace_schema') == 1
+    if (not (0 <= len(rows) <= 5) if personal else len(rows) != 5) or len({r['id'] for r in rows}) != len(rows) or len({r['to'].lower() for r in rows}) != len(rows):
         raise ValueError('Exactly five distinct contacts required')
-    if config['pilot_contact'] not in {r['id'] for r in rows}:
+    if not (personal and not rows and config['pilot_contact'] is None) and config['pilot_contact'] not in {r['id'] for r in rows}:
         raise ValueError('Unknown pilot contact')
     if not re.fullmatch(r'[a-zA-Z0-9-]+', config['campaign_id']):
         raise ValueError('Invalid campaign identifier')

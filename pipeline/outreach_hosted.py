@@ -9,6 +9,8 @@ import time
 from urllib.parse import urlsplit
 
 from flask import Flask, abort, g, jsonify, redirect, request
+from werkzeug.local import LocalProxy
+from outreach_workspaces import Workspaces, add_request
 from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow
@@ -40,6 +42,7 @@ def environment():
             'allowlist': json.loads(os.environ['OUTREACH_ANALYSTS']),
             'google_client': json.loads(os.environ['OUTREACH_GOOGLE_WEB_CLIENT']),
             'demo': mode == 'demo',
+            'personal_workspaces': os.environ.get('OUTREACH_PERSONAL_WORKSPACES') == 'true',
             'live_enabled': os.environ.get('OUTREACH_LIVE_ENABLED') == 'true'}
 
 
@@ -54,10 +57,13 @@ def create_app(settings=None):
     client = cfg['google_client'].get('web')
     if not client or client.get('auth_uri') != 'https://accounts.google.com/o/oauth2/auth' or client.get('token_uri') != 'https://oauth2.googleapis.com/token':
         raise ValueError('Google Web application client JSON required; Desktop client is not supported')
-    service = Service(cfg['state'], cfg['run'], cfg['key'], cfg['demo'], cfg['live_enabled'])
+    auth_service = Service(cfg['state'], cfg['run'], cfg['key'], cfg['demo'], cfg['live_enabled'])
+    workspaces = Workspaces(cfg, auth_service)
+    service = LocalProxy(lambda: g.workspace_service)
     app = Flask(__name__)
     app.config.update(MAX_CONTENT_LENGTH=65536, TESTING=bool(cfg.get('testing')))
-    app.extensions['outreach_service'] = service
+    app.extensions['outreach_service'] = auth_service
+    app.extensions['outreach_workspaces'] = workspaces
     cookie = '__Host-outreach' if parsed.scheme == 'https' else 'outreach_test'
 
     def session_id():
@@ -65,7 +71,7 @@ def create_app(settings=None):
 
     def new_session(response, email=None):
         sid, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
-        with service.db() as db:
+        with auth_service.db() as db:
             db.execute('DELETE FROM sessions WHERE id=? OR expires<?', (session_id(), time.time()))
             db.execute('INSERT INTO sessions VALUES(?,?,?,?)', (sha(sid.encode()), email, csrf, time.time()+28800))
         response.set_cookie(cookie, sid, secure=parsed.scheme == 'https', httponly=True, samesite='Lax', max_age=28800, path='/')
@@ -75,11 +81,17 @@ def create_app(settings=None):
     def guard():
         if request.host != parsed.netloc and request.path != '/healthz':
             abort(400)
-        with service.db() as db:
+        with auth_service.db() as db:
             row = db.execute('SELECT * FROM sessions WHERE id=? AND expires>?', (session_id(), time.time())).fetchone()
         g.user = dict(row) if row else None
         if g.user and g.user['email'] not in cfg['allowlist']:
             g.user = None
+        g.workspace_service, g.workspace = auth_service, None
+        if g.user:
+            try:
+                g.workspace, g.workspace_service = workspaces.select(g.user['email'], request.headers.get('X-Workspace'))
+            except PermissionError:
+                abort(403)
         if request.path.startswith('/api/'):
             if not g.user:
                 abort(401)
@@ -104,7 +116,7 @@ def create_app(settings=None):
         return jsonify(error='Sign in or check your permissions and request.'), error.code
 
     def owner():
-        if not g.user or cfg['allowlist'][g.user['email']] != 'owner':
+        if not g.user or g.workspace['role'] != 'owner':
             abort(403)
 
     def start_oauth(purpose):
@@ -122,8 +134,9 @@ def create_app(settings=None):
         if purpose == 'login':
             response, sid = new_session(response)
         payload = {'purpose': purpose, 'nonce': nonce, 'verifier': flow.code_verifier,
-                   'scopes': scopes, 'email': g.user['email'] if purpose == 'mail' else None}
-        with service.db() as db:
+                   'scopes': scopes, 'email': g.user['email'] if purpose == 'mail' else None,
+                   'workspace': g.workspace['id'] if purpose == 'mail' else None}
+        with auth_service.db() as db:
             db.execute('DELETE FROM oauth WHERE expires<?', (time.time(),))
             db.execute('INSERT INTO oauth VALUES(?,?,?,?)', (sha(state.encode()), sid, json.dumps(payload), time.time()+600))
         return jsonify(url=url) if purpose == 'mail' else response
@@ -139,7 +152,7 @@ def create_app(settings=None):
     @app.get('/oauth/callback')
     def callback():
         state = request.args.get('state', '')
-        with service.db() as db:
+        with auth_service.db() as db:
             db.execute('BEGIN IMMEDIATE')
             row = db.execute('SELECT * FROM oauth WHERE state=? AND session=? AND expires>?',
                              (sha(state.encode()), session_id(), time.time())).fetchone()
@@ -158,7 +171,10 @@ def create_app(settings=None):
             if not claims.get('email_verified') or claims.get('nonce') != pending['nonce'] or email not in cfg['allowlist']:
                 raise ValueError('Identity not permitted')
             if pending['purpose'] == 'mail':
-                if not g.user or email != pending['email'] or cfg['allowlist'][email] != 'owner':
+                if not g.user or g.user['email'] != pending['email']:
+                    raise ValueError('Original signed-in owner required')
+                g.workspace, g.workspace_service = workspaces.select(email, pending.get('workspace', 'shared'))
+                if not g.user or email != pending['email'] or g.workspace['role'] != 'owner':
                     raise ValueError('Owner session required')
                 if Gmail(credentials.token).profile() != read_status(service.run)['sender'].lower():
                     raise ValueError('Approved sender mismatch')
@@ -167,7 +183,9 @@ def create_app(settings=None):
                 with locked(service.folder):
                     service.save_credentials(credentials)
                     service.event(email, 'mailbox_connected')
-            response, _ = new_session(redirect('/'), email)
+            else:
+                g.workspace, g.workspace_service = workspaces.select(email)
+            response, _ = new_session(redirect('/?workspace='+g.workspace['id']), email)
             service.event(email, 'sign_in')
             return response
         except Exception:
@@ -185,13 +203,15 @@ def create_app(settings=None):
 
     @app.get('/api/session')
     def session():
-        return jsonify(email=g.user['email'], role=cfg['allowlist'][g.user['email']], csrf=g.user['csrf'])
+        return jsonify(email=g.user['email'], role=g.workspace['role'], csrf=g.user['csrf'],
+                       workspace=g.workspace, workspaces=workspaces.choices(g.user['email']))
 
     @app.get('/api/status')
     def status():
         state = read_status(service.run, service.demo)
         state['service'] = service.status()
         state['drafts'] = service.drafts()
+        state['workspace'] = g.workspace
         return jsonify(state)
 
     @app.post('/api/action')
@@ -201,12 +221,14 @@ def create_app(settings=None):
             abort(400)
         command = data.get('command')
         if command in {'approve_send', 'reject_draft'}:
-            if cfg['allowlist'][g.user['email']] not in {'owner', 'approver'}:
+            if g.workspace['role'] not in {'owner', 'approver'}:
                 abort(403)
         elif command != 'classify':
             owner()
         try:
-            if command in {'prepare_drafts', 'approve_send', 'edit_draft', 'reject_draft'}:
+            if command == 'add_request':
+                add_request(service, data, g.user['email'])
+            elif command in {'prepare_drafts', 'approve_send', 'edit_draft', 'reject_draft'}:
                 service.draft_action(command, data, g.user['email'])
             elif command in {'schedule_on', 'schedule_off'}:
                 service.set_schedule(command == 'schedule_on', g.user['email'])
@@ -232,12 +254,12 @@ def create_app(settings=None):
 
     @app.post('/api/logout')
     def logout():
-        with service.db() as db:
+        with auth_service.db() as db:
             db.execute('DELETE FROM sessions WHERE id=?', (session_id(),))
         response = jsonify(ok=True)
         response.delete_cookie(cookie, path='/')
         return response
 
     from outreach_email_login import register_email_login
-    register_email_login(app, service, cfg, session_id, new_session)
+    register_email_login(app, auth_service, cfg, session_id, new_session)
     return app
