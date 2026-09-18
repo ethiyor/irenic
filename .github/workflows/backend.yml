@@ -13,5 +13,6 @@ jobs:
       - run: pip install -r pipeline/requirements-hosted.lock
       - run: python -m unittest discover -s pipeline -p test_outreach_hosted.py
       - run: python -m unittest discover -s pipeline -p test_outreach_live.py
+      - run: python -m unittest discover -s pipeline -p test_gmail_pacing.py
       - run: python -m unittest discover -s pipeline -p test_outreach_console.py
       - run: python -m unittest discover -s pipeline -p test_migrate_outreach.py

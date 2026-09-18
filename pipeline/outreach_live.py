@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
@@ -98,8 +99,15 @@ class Gmail:
         self.token = token or os.environ.get('ROAD_SALT_GMAIL_ACCESS_TOKEN')
         if not self.token:
             raise ValueError('Set ROAD_SALT_GMAIL_ACCESS_TOKEN privately before live operations')
+        self._next_call = 0.0
 
     def api(self, path, params=None, body=None):
+        # Gmail's May 2026 quota is 6,000 units/user/minute. Pace this
+        # single-worker client to at most 3,000; never retry a send here.
+        cost = 100 if body is not None else (20 if path.startswith('messages/') else 5)
+        now = time.monotonic()
+        time.sleep(max(0.0, self._next_call - now))
+        self._next_call = time.monotonic() + cost / 50.0
         url = 'https://gmail.googleapis.com/gmail/v1/users/me/' + path
         if params:
             url += '?' + urlencode(params, doseq=True)
