@@ -10,12 +10,27 @@ from outreach_console import initialize_demo
 from outreach_hosted import create_app, environment
 
 
+def maintenance(environ, start_response):
+    """Keep operator SSH reachable after a lock blocks startup; expose no records."""
+    health = environ.get('PATH_INFO') == '/healthz'
+    body = b'{"status":"maintenance","ready":false}' if health else b'Workspace temporarily unavailable. Operator recovery is in progress.'
+    start_response('200 OK' if health else '503 Service Unavailable',
+        [('Content-Type','application/json' if health else 'text/plain'),('Cache-Control','no-store'),
+         ('X-Content-Type-Options','nosniff'),('Content-Length',str(len(body)))])
+    return [body]
+
+
 def main():
     os.umask(0o077)
     cfg = environment()
     if cfg['demo'] and not (Path(cfg['run'])/'live.sqlite3').exists():
         initialize_demo(cfg['run'])
-    app = create_app(cfg)
+    try:
+        app = create_app(cfg)
+    except FileExistsError:
+        logging.error('Startup blocked by existing lock. Maintenance only; no scheduler or mail actions. Operator must verify and recover.')
+        create_server(maintenance, host='0.0.0.0', port=int(os.environ.get('PORT','8000')), threads=2).run()
+        return
     service = app.extensions['outreach_workspaces']
     stopping = threading.Event()
     def scheduler():

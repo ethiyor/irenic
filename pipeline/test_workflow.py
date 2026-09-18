@@ -24,3 +24,12 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(w['counts']['initial_sent']+w['counts']['reminders_sent']+w['counts']['forwards_sent'],0)
     def test_projection_never_mutates_ledger(self):
         before=read_status(self.run);workflow(self.service,before);self.assertEqual(before,read_status(self.run))
+
+    def test_maintenance_exposes_no_application_routes(self):
+        from run_hosted import maintenance
+        for path in ['/', '/api/status', '/api/action', '/healthz']:
+            response=[]
+            body=b''.join(maintenance({'PATH_INFO':path},lambda status,headers:response.append((status,headers))))
+            self.assertEqual(response[0][0], '200 OK' if path=='/healthz' else '503 Service Unavailable')
+            self.assertNotIn(b'credential',body)
+            self.assertIn(('Cache-Control','no-store'),response[0][1])
