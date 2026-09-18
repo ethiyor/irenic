@@ -27,7 +27,7 @@ Stored consent is not proof of valid consent. The next authenticated mailbox ope
 
 ## Bounds and scan profile
 
-Mailbox clients enforce a 120-second elapsed read budget between network/read chunks, at most 30 seconds per network operation and a 24 MB response limit. Token refresh uses a 30-second transport timeout; the authentication library may retry transient refresh failures. These are cooperative I/O bounds, not a hard process-kill deadline. Host process/OS failures still need external monitoring.
+Scheduled mailbox clients enforce a 120-second elapsed read budget between network/read chunks, at most 30 seconds per network operation and a 24 MB response limit. An explicitly approved send receives a 300-second budget for its two required full scans, with a seven-minute browser request timeout; no scan is skipped to send sooner. Token refresh uses a 30-second transport timeout; the authentication library may retry transient refresh failures. These are cooperative I/O bounds, not a hard process-kill deadline. Host process/OS failures still need external monitoring.
 
 Scheduler cycles rotate the first workspace and stop admitting another workspace once 150 seconds have elapsed. A running workspace finishes or fails its bounded operation. No concurrent tenant workers are introduced. Last scan seconds, read attempts and retries are persisted without email content. Full overlapping history scans, spam/trash, bounces, cross-thread references, deduplication and immediate pre-send scans remain intact. No incremental Gmail history optimization was made without production profiling.
 

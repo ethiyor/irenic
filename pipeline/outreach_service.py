@@ -158,7 +158,11 @@ class Service:
                 else:
                     pilot = Pilot(self.run)
                     try:
-                        pilot.tick(self.gmail(), **kwargs)
+                        api = self.gmail()
+                        if command == 'approve_send':
+                            # Approval performs two full scans; retain a fresh pre-send check.
+                            api.deadline = time.monotonic()+300
+                        pilot.tick(api, **kwargs)
                     finally:
                         pilot.close()
                 with self.db() as db:
