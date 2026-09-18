@@ -39,11 +39,18 @@ The dashboard now aborts dataset requests after 20 seconds and offers retry. Wor
 
 ## Release
 
-Dashboard source: `c4e65c829ff3d77b82f24ea4f41a000489025d0d`.
-Sites version 7, deployment `appgdep_6aadc16f0d7c8191ad0288508c7527be`, succeeded at 22:55:50 UTC.
+Dashboard source: `fd13738f5cdb37e77c89303fef80a4ea6c2631e9`.
+Sites version 8, deployment `appgdep_6aadc43a3fcc8191990d59a7c292413d`, succeeded at 23:07:44 UTC. This includes the final chart-value contrast correction following version 7.
 URL: https://road-salt-contract-monitor.ytk2108.chatgpt.site/
 
-Analyst deployment receipt and remaining browser measurements are recorded below after verification.
+Analyst source: `e2e27205409c54763edaff7b7a0d02fdaa8ed3af`.
+Render deployment `dep-dams891ntn7c73d74p2g` succeeded at 7:08:33 PM EDT. Authenticated workspace subsequently loaded with the new style tokens and loading-state presentation. Schedule restored to enabled, with next eligibility displayed as 7:24:44 PM EDT. Mailbox authorization remains stored. Five initial requests, zero reminders and one forwarded reply remain provider-accepted; no live message was approved or sent during this milestone. No lock recovery or database repair was needed.
+
+Final dashboard HTML contrast scan: 604 visible text-bearing elements, minimum 4.65:1, no failing pairs. SVG chart value labels were separately inspected and changed from the library's default gray to `#526478`; all rendered chart text uses this token. Measured token pairs: body/white 12.64:1; secondary text/white 6.08:1; secondary text/canvas 5.66:1; white/teal 6.67:1; warning pair 6.47:1; error pair 6.71:1; focus/white 6.68:1; control-border/white 3.98:1. Disabled controls were excluded from text contrast requirements.
+
+Browser screenshots and DOM checks covered 1280px laptop and 390px mobile views, and dashboard reflow at 640 CSS pixels (the layout width corresponding to a 1280px viewport at 200% zoom). Actual browser zoom shortcuts did not provide a reliable native zoom test in this browser interface, so true 200% zoom remains a manual acceptance item rather than a claimed pass. Likewise, no native screen-reader certification is claimed. Local invalid classification produced the expected “Review note required” status. The missing-data proxy confirmed a failed fetch; a malformed generated dataset exercised the styled error screen and retry recovery. Neither fixture was published.
+
+The initial workspace now shows overview placeholders instead of briefly displaying every section while its session loads, and exposes `aria-busy` until initialization ends. A session-load failure provides a recovery message. Visual checks were performed in the browser and displayed in this task; no standalone screenshot archive was saved.
 
 ## Rollback
 
