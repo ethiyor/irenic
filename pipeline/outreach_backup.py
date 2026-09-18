@@ -97,6 +97,7 @@ def restore(source, key, destination):
             if digest(data) != expected['sha256'] or len(data) != expected['bytes']:
                 raise ValueError('Backup hash mismatch')
         destination.mkdir(parents=True, mode=0o700)
+        (destination/'RECOVERY_HOLD').write_text('Restore in progress; provider access disabled.\n')
         for name in manifest['files']:
             target = destination/name
             target.parent.mkdir(parents=True, exist_ok=True)

@@ -82,8 +82,12 @@ class Service:
         with self.db() as db:
             db.execute('INSERT OR REPLACE INTO credential VALUES(1,?)', (encrypted,))
 
+    def recovery_hold(self):
+        # A restore-wide hold also covers personal workspaces created after recovery.
+        return any((folder/'RECOVERY_HOLD').is_file() for folder in (self.folder, *self.folder.parents))
+
     def gmail(self):
-        if (self.folder/'RECOVERY_HOLD').exists():
+        if self.recovery_hold():
             raise ValueError('Restored workspace is quarantined; outbound mail is disabled')
         with self.db() as db:
             row = db.execute('SELECT encrypted FROM credential WHERE id=1').fetchone()
@@ -100,7 +104,7 @@ class Service:
         return Gmail(credentials.token, deadline=time.monotonic()+120)
 
     def set_schedule(self, enabled, actor):
-        if enabled and (self.folder/'RECOVERY_HOLD').exists():
+        if enabled and self.recovery_hold():
             raise ValueError('Restore reconciliation required before scheduling')
         with locked(self.folder):
             state = self.status()
@@ -144,7 +148,7 @@ class Service:
             api.send(msg.as_bytes())
 
     def draft_action(self, command, data, actor):
-        if (self.folder/'RECOVERY_HOLD').exists():
+        if self.recovery_hold():
             raise ValueError('Restore reconciliation required before campaign actions')
         with locked(self.folder):
             if command == 'prepare_drafts' or command == 'approve_send':
@@ -184,7 +188,7 @@ class Service:
             pilot.close()
 
     def run_due(self, now=None):
-        if (self.folder/'RECOVERY_HOLD').exists():
+        if self.recovery_hold():
             return 'recovery_hold'
         now = time.time() if now is None else now
         with self.db() as db:

@@ -49,9 +49,13 @@ def operations(service, now=None):
         incident('disk_unavailable', 'critical', 'Check the persistent disk mount and permissions.')
     for folder in (service.folder, service.run):
         lock = folder/'worker.lock'
-        if lock.exists() and now-lock.stat().st_mtime > 300:
+        try:
+            stale = now-lock.stat().st_mtime > 300
+        except FileNotFoundError:
+            stale = False
+        if stale:
             incident('lock_review', 'critical', 'Lock older than 5 minutes. Confirm the process is stopped before inspecting or removing it; age alone does not prove it is stale.')
-    if (service.folder/'RECOVERY_HOLD').exists():
+    if service.recovery_hold():
         incident('recovery_hold', 'critical', 'Restored workspace is quarantined. Reconcile provider outcomes and review identity/configuration before operator reactivation.')
     backup_dir = os.environ.get('OUTREACH_BACKUP_DIR')
     result['backup'] = {'configured': bool(backup_dir and os.environ.get('OUTREACH_BACKUP_KEY')), 'off_host_copy_verified': False}

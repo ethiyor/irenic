@@ -173,6 +173,10 @@ class WorkspaceRestoreTests(unittest.TestCase):
                 self.assertFalse(restored.status()['enabled'])
             self.assertEqual((restarted.services[fixture.ryan].run/'proof.eml').read_bytes(),evidence.read_bytes())
             self.assertEqual(restarted.choices('ryan@example.com'),fixture.manager.choices('ryan@example.com'))
+            restarted.register_verified('new-after-restore@example.com')
+            new_service=restarted.services[restarted.personal['new-after-restore@example.com']]
+            self.assertEqual(new_service.run_due(),'recovery_hold')
+            with self.assertRaises(ValueError):new_service.gmail()
             print('Multi-workspace restore drill: %.3fs, %d workspaces, %d verified files' % (time.monotonic()-started,len(restarted.services),receipt['verified_files']))
         finally:fixture.tearDown()
 

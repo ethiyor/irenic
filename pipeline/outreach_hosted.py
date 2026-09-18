@@ -149,7 +149,7 @@ def create_app(settings=None):
     def start_oauth(purpose):
         if purpose == 'mail':
             owner()
-            if cfg['demo']:
+            if cfg['demo'] or service.recovery_hold():
                 abort(403)
         nonce = secrets.token_urlsafe(32)
         scopes = IDENTITY + (MAIL if purpose == 'mail' else [])
