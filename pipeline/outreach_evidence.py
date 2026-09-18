@@ -78,11 +78,14 @@ def evidence(folder, mid):
                  'Quarantined: unsupported type' if detected=='unsupported' else 'Download available')
         available = state == 'Download available'
         review = reviews.get(digest, {})
-        manifest.append(dict(id=fid,name=safe_name(part.get_filename()),bytes=len(data),sha256=digest,
+        filename = safe_name(part.get_filename())
+        if detected == 'application/pdf' and not filename.lower().endswith('.pdf'):
+            filename += '.pdf'
+        manifest.append(dict(id=fid,name=filename,bytes=len(data),sha256=digest,
             detected_type=detected,declared_type=part.get_content_type(),state=state,available=available,
             review=review.get('reason','Not reviewed; not accepted for publication.'),decision=review.get('decision','needs review')))
         if available:
-            payloads[fid] = (data,safe_name(part.get_filename()))
+            payloads[fid] = (data,filename)
     result = dict(id=mid,rid=row['rid'],classification=row['kind'],subject=str(msg.get('Subject','')),
         sender=str(msg.get('From','')),date=str(msg.get('Date','Not stated')),message_id=str(msg.get('Message-ID','Not stated')),
         raw_sha256=hashlib.sha256(raw).hexdigest(),text=text,history=history,attachments=manifest,

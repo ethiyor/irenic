@@ -16,7 +16,7 @@ class EvidenceTests(unittest.TestCase):
     def add(self):
         msg=EmailMessage();msg['From']='office@example.com';msg['Subject']='Evidence';msg['Message-ID']='<fixture@example.com>'
         msg.set_content('<p>Road award confirmed</p><script>steal()</script><img src="https://tracker.invalid/x"><form>secret</form>',subtype='html')
-        self.pdf=b'%PDF-1.4\nfixture\n%%EOF';msg.add_attachment(self.pdf,maintype='application',subtype='pdf',filename='../../evil<script>.pdf')
+        self.pdf=b'%PDF-1.4\nfixture\n%%EOF';msg.add_attachment(self.pdf,maintype='application',subtype='pdf',filename='../../evil<script>.html')
         msg.add_attachment(b'<script>bad()</script>',maintype='text',subtype='html',filename='active.html')
         self.raw=msg.as_bytes(policy=policy.SMTP)
         with sqlite3.connect(self.run/'live.sqlite3') as db:
@@ -27,7 +27,7 @@ class EvidenceTests(unittest.TestCase):
     def test_reviewer_html_manifest_download_and_original(self):
         path=self.add();self.login('reviewer@example.com');r=self.get(path);self.assertEqual(r.status_code,200);e=r.json
         self.assertIn('Road award confirmed',e['text']);self.assertNotIn('steal',e['text']);self.assertNotIn('tracker',e['text']);self.assertNotIn('secret',e['text'])
-        f=e['attachments'][0];self.assertNotIn('/',f['name']);self.assertNotIn('<',f['name']);self.assertEqual(f['sha256'],sha256(self.pdf).hexdigest())
+        f=e['attachments'][0];self.assertNotIn('/',f['name']);self.assertNotIn('<',f['name']);self.assertTrue(f['name'].endswith('.pdf'));self.assertEqual(f['sha256'],sha256(self.pdf).hexdigest())
         d=self.get(path+'/'+f['id']);self.assertEqual(d.data,self.pdf);self.assertEqual(d.headers['Cache-Control'],'no-store');self.assertIn('attachment;',d.headers['Content-Disposition']);self.assertEqual(d.mimetype,'application/octet-stream')
         self.assertEqual(self.get(path+'/original').data,self.raw)
         self.assertFalse(e['attachments'][1]['available']);self.assertEqual(self.get(path+'/'+e['attachments'][1]['id']).status_code,404)
