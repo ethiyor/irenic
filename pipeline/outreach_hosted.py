@@ -42,6 +42,7 @@ def environment():
             'allowlist': json.loads(os.environ['OUTREACH_ANALYSTS']),
             'google_client': json.loads(os.environ['OUTREACH_GOOGLE_WEB_CLIENT']),
             'demo': mode == 'demo',
+            'open_signup': os.environ.get('OUTREACH_OPEN_SIGNUP') == 'true',
             'personal_workspaces': os.environ.get('OUTREACH_PERSONAL_WORKSPACES') == 'true',
             'live_enabled': os.environ.get('OUTREACH_LIVE_ENABLED') == 'true'}
 
@@ -58,6 +59,8 @@ def create_app(settings=None):
     if not client or client.get('auth_uri') != 'https://accounts.google.com/o/oauth2/auth' or client.get('token_uri') != 'https://oauth2.googleapis.com/token':
         raise ValueError('Google Web application client JSON required; Desktop client is not supported')
     auth_service = Service(cfg['state'], cfg['run'], cfg['key'], cfg['demo'], cfg['live_enabled'])
+    if cfg.get('open_signup') and not cfg.get('personal_workspaces'):
+        raise ValueError('Open sign-up requires isolated personal workspaces')
     workspaces = Workspaces(cfg, auth_service)
     service = LocalProxy(lambda: g.workspace_service)
     app = Flask(__name__)
@@ -84,7 +87,7 @@ def create_app(settings=None):
         with auth_service.db() as db:
             row = db.execute('SELECT * FROM sessions WHERE id=? AND expires>?', (session_id(), time.time())).fetchone()
         g.user = dict(row) if row else None
-        if g.user and g.user['email'] not in cfg['allowlist']:
+        if g.user and not workspaces.permitted(g.user['email']):
             g.user = None
         g.workspace_service, g.workspace = auth_service, None
         if g.user:
@@ -168,7 +171,7 @@ def create_app(settings=None):
             credentials = flow.credentials
             claims = id_token.verify_oauth2_token(credentials.id_token, GoogleRequest(), client['client_id'])
             email = claims.get('email', '').lower()
-            if not claims.get('email_verified') or claims.get('nonce') != pending['nonce'] or email not in cfg['allowlist']:
+            if claims.get('email_verified') is not True or claims.get('nonce') != pending['nonce']:
                 raise ValueError('Identity not permitted')
             if pending['purpose'] == 'mail':
                 if not g.user or g.user['email'] != pending['email']:
@@ -184,12 +187,17 @@ def create_app(settings=None):
                     service.save_credentials(credentials)
                     service.event(email, 'mailbox_connected')
             else:
+                workspaces.register_verified(email)
                 g.workspace, g.workspace_service = workspaces.select(email)
             response, _ = new_session(redirect('/?workspace='+g.workspace['id']), email)
             service.event(email, 'sign_in')
             return response
         except Exception:
             return 'Sign-in or mailbox connection failed. Retry sign-in and check the approved account and configuration.', 403
+
+    @app.get('/privacy')
+    def privacy():
+        return (ROOT/'pipeline/outreach_privacy.html').read_text(encoding='utf-8')
 
     @app.get('/healthz')
     def health():

@@ -4,6 +4,8 @@ import hashlib
 import hmac
 import json
 import logging
+import threading
+import time
 from pathlib import Path
 
 from outreach_console import read_status
@@ -20,41 +22,88 @@ class Workspaces:
             return
         if cfg['demo']:
             raise ValueError('Personal workspaces require live mode; they never copy demo mail')
-        original_sender = read_status(original.run)['sender'].lower()
-        for email in cfg['allowlist']:
-            if email == original_sender:
-                continue
-            address(email)
-            wid = 'personal-' + sha(email.encode())[:24]
-            root = Path(cfg['state'])/'workspaces'/wid
-            run, state = root/'campaign', root/'service'
-            key = base64.urlsafe_b64encode(hmac.new(cfg['key'], wid.encode(), hashlib.sha256).digest())
-            run.mkdir(parents=True, exist_ok=True)
-            pilot = Pilot(run)
-            try:
-                if not pilot.db.execute('SELECT 1 FROM campaign').fetchone():
-                    config = dict(workspace_schema=1, campaign_id=wid, sender=email,
-                        forward_to=[email], pilot_contact=None, timezone='America/New_York',
-                        holidays=[], followup_business_days=5, max_followups=2,
-                        followup_text='Following up on the records request below.', requests=[])
-                    pilot.initialize(config, sha(canonical(config)), 'Empty personal workspace; no outreach authorized')
-                    pilot.control('pause', 'New personal workspace starts paused')
-                _, config = pilot.config()
-                if config['sender'] != email or config.get('workspace_schema') != 1:
-                    raise ValueError('Workspace identity mismatch')
-            finally:
-                pilot.close()
-            self.personal[email] = wid
-            self.services[wid] = Service(state, run, key, False, cfg['live_enabled'])
+        self.lock = threading.RLock()
+        self.original_sender = read_status(original.run)['sender'].lower()
+        with original.db() as db:
+            db.execute('CREATE TABLE IF NOT EXISTS workspace_accounts(email TEXT PRIMARY KEY, created REAL NOT NULL, active INTEGER NOT NULL DEFAULT 1)')
+            registered = [r['email'] for r in db.execute('SELECT email FROM workspace_accounts WHERE active=1')]
+        for email in dict.fromkeys([*cfg['allowlist'], *registered]):
+            self.provision(email)
+
+    def provision(self, email):
+        if email == self.original_sender or email in self.personal:
+            return
+        address(email)
+        wid = 'personal-' + sha(email.encode())[:24]
+        root = Path(self.cfg['state'])/'workspaces'/wid
+        run, state = root/'campaign', root/'service'
+        key = base64.urlsafe_b64encode(hmac.new(self.cfg['key'], wid.encode(), hashlib.sha256).digest())
+        run.mkdir(parents=True, exist_ok=True)
+        pilot = Pilot(run)
+        try:
+            if not pilot.db.execute('SELECT 1 FROM campaign').fetchone():
+                config = dict(workspace_schema=1, campaign_id=wid, sender=email,
+                    forward_to=[email], pilot_contact=None, timezone='America/New_York',
+                    holidays=[], followup_business_days=5, max_followups=2,
+                    followup_text='Following up on the records request below.', requests=[])
+                pilot.initialize(config, sha(canonical(config)), 'Empty personal workspace; no outreach authorized')
+                pilot.control('pause', 'New personal workspace starts paused')
+            _, config = pilot.config()
+            if config['sender'] != email or config.get('workspace_schema') != 1:
+                raise ValueError('Workspace identity mismatch')
+        finally:
+            pilot.close()
+        self.services[wid] = Service(state, run, key, False, self.cfg['live_enabled'])
+        self.personal[email] = wid
+
+    def permitted(self, email):
+        if email in self.cfg['allowlist']:
+            return True
+        if not self.cfg.get('personal_workspaces') or not email:
+            return False
+        with self.original.db() as db:
+            return bool(db.execute('SELECT 1 FROM workspace_accounts WHERE email=? AND active=1', (email,)).fetchone())
+
+    def register_verified(self, email):
+        # Called only after server-side Google ID token, nonce and email verification.
+        if self.permitted(email):
+            if self.cfg.get('personal_workspaces'):
+                with self.lock:
+                    self.provision(email)
+            return
+        if not self.cfg.get('open_signup') or not self.cfg.get('personal_workspaces'):
+            raise ValueError('Account is not invited')
+        address(email)
+        with self.lock:
+            with self.original.db() as db:
+                db.execute('BEGIN IMMEDIATE')
+                existing = db.execute('SELECT active FROM workspace_accounts WHERE email=?', (email,)).fetchone()
+                if existing:
+                    if not existing['active']:
+                        raise ValueError('Account disabled')
+                else:
+                    count = db.execute('SELECT count(*) FROM workspace_accounts').fetchone()[0]
+                    recent = db.execute('SELECT count(*) FROM workspace_accounts WHERE created>?', (time.time()-3600,)).fetchone()[0]
+                    if count >= self.cfg.get('workspace_limit', 100) or recent >= 10:
+                        raise ValueError('New workspace capacity temporarily unavailable')
+                    db.execute('INSERT INTO workspace_accounts(email,created) VALUES(?,?)', (email,time.time()))
+            self.provision(email)
+            self.original.event(email, 'personal_workspace_registered')
 
     def choices(self, email):
-        result = [{'id': 'shared', 'name': 'LionMail campaign', 'role': self.cfg['allowlist'][email]}]
+        result = []
+        if email in self.cfg['allowlist']:
+            result.append({'id': 'shared', 'name': 'LionMail campaign', 'role': self.cfg['allowlist'][email]})
         if email in self.personal:
             result.insert(0, {'id': self.personal[email], 'name': 'My workspace · '+email, 'role': 'owner'})
         return result
 
     def select(self, email, wid=None):
+        if not self.permitted(email):
+            raise PermissionError('Account not available')
         choices = self.choices(email)
+        if not choices:
+            raise PermissionError('Workspace not available')
         wid = wid or choices[0]['id']
         match = next((x for x in choices if x['id'] == wid), None)
         if not match:
@@ -63,8 +112,17 @@ class Workspaces:
 
     def run_due(self):
         # One bounded scheduler. Failure in one tenant must not skip others.
-        for service in self.services.values():
+        if self.cfg.get('personal_workspaces'):
+            with self.lock:
+                entries = list(self.services.items())
+        else:
+            entries = list(self.services.items())
+        for wid, service in entries:
             try:
+                if wid != 'shared':
+                    email = read_status(service.run)['sender']
+                    if not self.permitted(email):
+                        continue
                 service.run_due()
             except Exception:
                 logging.error('Workspace scheduler unavailable; no private details logged.')

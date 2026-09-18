@@ -14,6 +14,7 @@ jobs:
       - run: python -m unittest discover -s pipeline -p test_outreach_hosted.py
       - run: python -m unittest discover -s pipeline -p test_email_login.py
       - run: python -m unittest discover -s pipeline -p test_workspaces.py
+      - run: python -m unittest discover -s pipeline -p test_public_signup.py
       - run: python -m unittest discover -s pipeline -p test_outreach_live.py
       - run: python -m unittest discover -s pipeline -p test_gmail_pacing.py
       - run: python -m unittest discover -s pipeline -p test_outreach_console.py
