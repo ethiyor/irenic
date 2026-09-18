@@ -41,20 +41,24 @@ class WorkspaceTests(unittest.TestCase):
         with self.auth.db() as db:
             db.execute('INSERT INTO sessions VALUES(?,?,?,?)', (sha(sid.encode()), email, csrf, time.time()+1000))
         self.client.set_cookie('__Host-outreach', sid, domain='analyst.example')
-        self.headers = {'Origin':self.cfg['origin'], 'X-CSRF-Token':csrf}
+        self.selected=self.manager.personal.get(email,'shared')
+        self.headers = {'Origin':self.cfg['origin'], 'X-CSRF-Token':csrf,'X-Workspace':self.selected}
 
     def get(self, path, wid=None):
-        return self.client.get(path, base_url=self.cfg['origin'], headers={'X-Workspace':wid} if wid else {})
+        return self.client.get(path, base_url=self.cfg['origin'], headers={'X-Workspace':wid or self.selected})
 
     def post(self, command, wid=None, **values):
         return self.client.post('/api/action', base_url=self.cfg['origin'],
-            headers=self.headers | ({'X-Workspace':wid} if wid else {}), json=dict(command=command, **values))
+            headers=self.headers | {'X-Workspace':wid or self.selected}, json=dict(command=command, **values))
 
     def contact(self, wid=None):
         return self.post('add_request', wid, organization='Test office', recipient='office@example.com',
             subject='Records request', body='Please provide road salt contract records.')
 
-    def test_default_private_workspace_and_explicit_shared_membership(self):
+    def test_invited_default_shared_and_explicit_personal_workspace(self):
+        default=self.client.get('/api/session',base_url=self.cfg['origin']).json
+        self.assertEqual(default['workspace']['id'],'shared')
+        self.assertEqual(default['role'],'approver')
         user = self.get('/api/session').json
         self.assertEqual(user['role'], 'owner')
         self.assertEqual(user['workspace']['id'], self.ryan)

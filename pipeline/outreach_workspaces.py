@@ -95,7 +95,7 @@ class Workspaces:
         if email in self.cfg['allowlist']:
             result.append({'id': 'shared', 'name': 'LionMail campaign', 'role': self.cfg['allowlist'][email]})
         if email in self.personal:
-            result.insert(0, {'id': self.personal[email], 'name': 'My workspace · '+email, 'role': 'owner'})
+            result.append({'id': self.personal[email], 'name': 'My workspace · '+email, 'role': 'owner'})
         return result
 
     def select(self, email, wid=None):

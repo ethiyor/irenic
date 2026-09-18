@@ -71,7 +71,7 @@ def read_status(folder, demo=False):
         return {'mode': 'SIMULATION' if demo else 'LIVE LEDGER', 'paused': bool(row['paused']),
                 'expanded': bool(row['expanded']), 'sender': config['sender'], 'forward_to': config['forward_to'],
                 'requests': requests, 'incoming': incoming,
-                'jobs': [dict(r) for r in db.execute('SELECT key,kind,state,provider,sent_day FROM jobs')],
+                'jobs': [dict(r) for r in db.execute('SELECT key,rid,kind,stage,state,provider,sent_day FROM jobs')],
                 'audit': [dict(r) for r in db.execute('SELECT * FROM audit ORDER BY seq DESC LIMIT 50')],
                 'scheduler': 'Not configured', 'live_reply_validation': 'Pending; demo results are not live evidence'}
 

@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from flask import Flask, abort, g, jsonify, redirect, request, send_file
 from io import BytesIO
 from outreach_evidence import evidence
+from outreach_workflow import workflow
 from werkzeug.local import LocalProxy
 from outreach_workspaces import Workspaces, add_request
 from google.auth.transport.requests import Request as GoogleRequest
@@ -235,6 +236,7 @@ def create_app(settings=None):
         state['service'] = service.status()
         state['drafts'] = service.drafts()
         state['workspace'] = g.workspace
+        state['workflow'] = workflow(service, state)
         return jsonify(state)
 
     @app.get('/api/evidence/<mid>')
