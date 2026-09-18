@@ -49,7 +49,7 @@ def create_app(settings=None):
     parsed = urlsplit(origin)
     if (parsed.scheme != 'https' and not (cfg.get('testing') and parsed.hostname == '127.0.0.1')) or parsed.path or parsed.query or parsed.fragment or parsed.username:
         raise ValueError('An exact HTTPS origin is required')
-    if not cfg['allowlist'] or any(role not in {'owner', 'reviewer'} for role in cfg['allowlist'].values()):
+    if not cfg['allowlist'] or any(role not in {'owner', 'reviewer', 'approver'} for role in cfg['allowlist'].values()):
         raise ValueError('Explicit analyst allowlist and roles required')
     client = cfg['google_client'].get('web')
     if not client or client.get('auth_uri') != 'https://accounts.google.com/o/oauth2/auth' or client.get('token_uri') != 'https://oauth2.googleapis.com/token':
@@ -200,7 +200,10 @@ def create_app(settings=None):
         if not isinstance(data, dict):
             abort(400)
         command = data.get('command')
-        if command != 'classify':
+        if command in {'approve_send', 'reject_draft'}:
+            if cfg['allowlist'][g.user['email']] not in {'owner', 'approver'}:
+                abort(403)
+        elif command != 'classify':
             owner()
         try:
             if command in {'prepare_drafts', 'approve_send', 'edit_draft', 'reject_draft'}:
@@ -235,4 +238,6 @@ def create_app(settings=None):
         response.delete_cookie(cookie, path='/')
         return response
 
+    from outreach_email_login import register_email_login
+    register_email_login(app, service, cfg, session_id, new_session)
     return app

@@ -110,6 +110,29 @@ class Service:
                 db.execute('UPDATE settings SET enabled=0,next_run=NULL WHERE id=1')
             self.event(actor, 'mailbox_disconnected_locally')
 
+    def send_signin_link(self, recipient, link):
+        # Authentication messages are sent only after an allowlisted person's own
+        # CSRF-protected request. They are separate from procurement approvals.
+        if self.demo or not self.live_enabled:
+            raise ValueError('Email sign-in requires a connected live deployment')
+        from email.message import EmailMessage
+        from email import policy
+        from email.utils import formatdate, make_msgid
+        with locked(self.folder):
+            sender = read_status(self.run)['sender']
+            api = self.gmail()
+            if api.profile() != sender.lower():
+                raise ValueError('Approved sender mismatch')
+            msg = EmailMessage(policy=policy.SMTP)
+            msg['From'], msg['To'] = sender, recipient
+            msg['Subject'] = 'Your Road Salt Analyst sign-in link'
+            msg['Date'], msg['Message-ID'] = formatdate(localtime=False), make_msgid()
+            msg.set_content('Use this single-use link to sign in to Road Salt Analyst:\n\n'+link+
+                '\n\nOpen it in the same browser where you requested it, within 15 minutes. '
+                'You do not need to connect your mailbox or grant Google permissions. '
+                'If you did not request this link, ignore this email. Do not forward it.')
+            api.send(msg.as_bytes())
+
     def draft_action(self, command, data, actor):
         with locked(self.folder):
             if command == 'prepare_drafts' or command == 'approve_send':
