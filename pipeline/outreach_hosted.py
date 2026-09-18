@@ -22,6 +22,15 @@ from outreach_service import Service
 IDENTITY = ['openid', 'https://www.googleapis.com/auth/userinfo.email']
 MAIL = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send']
 
+# Campaign mutations are explicitly authorized; new/unknown commands fail closed.
+COMMAND_ROLES = {
+    'add_request': {'owner'}, 'prepare_drafts': {'owner'},
+    'approve_send': {'owner', 'approver'}, 'reject_draft': {'owner', 'approver'},
+    'edit_draft': {'owner'}, 'schedule_on': {'owner'}, 'schedule_off': {'owner'},
+    'disconnect': {'owner'}, 'pause': {'owner'}, 'resume': {'owner'},
+    'classify': {'owner'}, 'demo_reply': {'owner'},
+}
+
 
 def environment():
     required = ['OUTREACH_ENCRYPTION_KEY', 'OUTREACH_ORIGIN', 'OUTREACH_RUN',
@@ -217,6 +226,9 @@ def create_app(settings=None):
     @app.get('/api/status')
     def status():
         state = read_status(service.run, service.demo)
+        # Local-console historical placeholders are not hosted acceptance evidence.
+        state.pop('scheduler', None)
+        state.pop('live_reply_validation', None)
         state['service'] = service.status()
         state['drafts'] = service.drafts()
         state['workspace'] = g.workspace
@@ -228,11 +240,8 @@ def create_app(settings=None):
         if not isinstance(data, dict):
             abort(400)
         command = data.get('command')
-        if command in {'approve_send', 'reject_draft'}:
-            if g.workspace['role'] not in {'owner', 'approver'}:
-                abort(403)
-        elif command != 'classify':
-            owner()
+        if not isinstance(command, str) or g.workspace['role'] not in COMMAND_ROLES.get(command, set()):
+            abort(403)
         try:
             if command == 'add_request':
                 add_request(service, data, g.user['email'])

@@ -52,6 +52,12 @@ def read_status(folder, demo=False):
             r['enabled'] = bool(row['expanded'] or r['id'] == config['pilot_contact'])
             requests.append(r)
         incoming = []
+        # Notes live in the existing append-only audit; do not rewrite history.
+        classification_notes = {}
+        for event in db.execute("SELECT detail FROM audit WHERE event LIKE 'classified_%' ORDER BY seq"):
+            mid, separator, note = event['detail'].partition(': ')
+            if separator:
+                classification_notes[mid] = note
         for r in db.execute('SELECT * FROM incoming'):
             msg = BytesParser(policy=policy.default).parsebytes(r['raw'])
             body = msg.get_body(preferencelist=('plain',))
@@ -61,7 +67,7 @@ def read_status(folder, demo=False):
                 preview = 'Cannot decode body. Review the original in Gmail.'
             incoming.append({'id': r['id'], 'rid': r['rid'], 'kind': r['kind'],
                              'from': str(msg.get('From', '')), 'subject': str(msg.get('Subject', '')),
-                             'preview': preview})
+                             'preview': preview, 'classification_note': classification_notes.get(r['id'], '')})
         return {'mode': 'SIMULATION' if demo else 'LIVE LEDGER', 'paused': bool(row['paused']),
                 'expanded': bool(row['expanded']), 'sender': config['sender'], 'forward_to': config['forward_to'],
                 'requests': requests, 'incoming': incoming,
