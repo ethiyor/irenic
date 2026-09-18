@@ -8,8 +8,8 @@
   "pipeline/outreach_console.html": "c2ce3be7f0262886444ef95ca903a9d367ab68417485071025080a1980174725",
   "pipeline/outreach_fixture.py": "2022e6984c1000ff50ba9273d75e7247c5440b42cfa1ce27e2089195ab04a13b",
   "pipeline/outreach_service.py": "30c6170ef3d5049e1f7b4c66cca8043138d35eaa8f45ee1945f96a7c611172bc",
-  "pipeline/outreach_hosted.py": "24f5f2729478c8547f0299284682d1541937ebb439a8065bf22de152a98a08c0",
-  "pipeline/outreach_hosted.html": "9741cbdeab18eac74f7519ca706aea673b4028b5db4f5bca06bca14a52020fcb",
+  "pipeline/outreach_hosted.py": "81fcbd72de2ab8d3f686b0335751cf043845c128a0a3ba4e630c11e41a28eea8",
+  "pipeline/outreach_hosted.html": "c30fc11e2c77c3ee037694cd6cca97696b626fe38105bf9debeecccbcf29a019",
   "pipeline/run_hosted.py": "2812658f9bf61c8bb2371ad1e98ad2ba095cfb94a1b1252ed6ff4dd7382b08e6",
   "pipeline/test_outreach_hosted.py": "5b5d745fa6553aa7d57bbd5e14c4bbced7fe135c39772d71fc1af912d32b97bf",
   "pipeline/test_outreach_live.py": "faf29f8b4cdb172ae06791287b71d520f5d746ec8bb93be2622445ab51016c23",
@@ -19,5 +19,6 @@
   "data/outreach/milestone-9/contacts.json": "bdc92c831bc9332dfa06fda526d0a7f21499367dcdd58eb748c450bb0a299134",
   "README.md": "1ecafac200844a964c63352c4e8aec169eafed90e4d305e9354027d71d0efc76",
   ".gitignore": "170823e060477f4718f7f6085728afc15323d016bbbfe218a957ba3117410a02",
-  ".github/workflows/backend.yml": "8c5751c75ef76ee3d446c0fd9b3638e143823a6e32b71fa3243277e4e8452b1a"
+  ".github/workflows/backend.yml": "8c5751c75ef76ee3d446c0fd9b3638e143823a6e32b71fa3243277e4e8452b1a",
+  "pipeline/outreach_signin.html": "6439c70f001bfd045834b9f7f4a2d67ad019412d4055021358cf6bad7621121d"
 }

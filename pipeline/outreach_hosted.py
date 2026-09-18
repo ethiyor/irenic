@@ -180,7 +180,7 @@ def create_app(settings=None):
     @app.get('/')
     def index():
         if not g.user:
-            return '<!doctype html><html lang="en"><meta name="viewport" content="width=device-width"><title>Analyst sign-in</title><body><h1>Road Salt · Analyst workspace</h1><p>Private access for approved analysts.</p><a href="/login">Sign in with Google</a></body></html>'
+            return (ROOT/'pipeline/outreach_signin.html').read_text(encoding='utf-8')
         return (ROOT/'pipeline/outreach_hosted.html').read_text(encoding='utf-8')
 
     @app.get('/api/session')
