@@ -1,0 +1,49 @@
+/* Road Salt visual system v1. Shared verbatim by both products. */
+:root {
+  color-scheme: light;
+  --rs-canvas: #f4f7fa;
+  --rs-surface: #ffffff;
+  --rs-subtle: #edf2f7;
+  --rs-ink: #23344a;
+  --rs-muted: #526478;
+  --rs-line: #d6dfe8;
+  --rs-control: #718196;
+  --rs-navy: #192f50;
+  --rs-teal: #216759;
+  --rs-accent: var(--rs-navy);
+  --rs-link: #245f95;
+  --rs-focus: #125da6;
+  --rs-warning: #78530e;
+  --rs-warning-bg: #fff7e5;
+  --rs-error: #9a3128;
+  --rs-error-bg: #fff1ef;
+  --rs-radius: 8px;
+  --rs-panel-radius: 12px;
+  --rs-font: "Segoe UI", Arial, sans-serif;
+  --rs-space-1: 4px;
+  --rs-space-2: 8px;
+  --rs-space-3: 12px;
+  --rs-space-4: 16px;
+  --rs-space-5: 20px;
+  --rs-space-6: 24px;
+}
+body { font-family: var(--rs-font); color: var(--rs-ink); background: var(--rs-canvas); line-height: 1.55; }
+button, input, textarea, select { font-family: inherit; font-size: 14px; }
+button, select, input:not([type=checkbox]), .button { min-height: 44px; border-radius: var(--rs-radius); }
+button, select, input:not([type=checkbox]), textarea { border-color: var(--rs-control); }
+input, textarea, select { color: var(--rs-ink); background: var(--rs-surface); max-width: 100%; }
+input::placeholder, textarea::placeholder { color: var(--rs-muted); opacity: 1; }
+a { color: var(--rs-link); text-underline-offset: 3px; }
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--rs-focus) !important; outline-offset: 3px !important; box-shadow: 0 0 0 3px white !important;
+}
+summary { min-height: 32px; padding: 4px 0; cursor: pointer; }
+table, .metrics strong, .card strong { font-variant-numeric: tabular-nums; }
+th { font-size: 12px; color: var(--rs-muted); }
+td { font-size: 14px; }
+.table-scroll, .scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.skip-link { position: absolute; top: 8px; left: 8px; z-index: 100; transform: translateY(-160%); padding: 12px 16px; background: white; color: var(--rs-ink); border: 2px solid var(--rs-focus); border-radius: 8px; }
+.skip-link:focus { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

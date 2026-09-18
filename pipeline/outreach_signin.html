@@ -3,6 +3,66 @@
 <style nonce="console">
 *{box-sizing:border-box}body{margin:0;background:#f2f6f6;color:#203c46;font:15px/1.6 "Segoe UI",system-ui,sans-serif;min-height:100vh;display:grid;place-items:center;padding:32px;background-image:radial-gradient(ellipse at top right,#dbece6,transparent 60%)}main{width:min(100%,1000px);display:grid;grid-template-columns:1.1fr 1fr;border-radius:24px;overflow:hidden;box-shadow:0 24px 80px #183e4815;border:1px solid #dbe5e5}.intro{background:#14343e;color:#fff;padding:58px 48px;position:relative;overflow:hidden}.brand{font-size:11px;letter-spacing:2px;font-weight:750;color:#a5d6c9}.mark{width:48px;height:48px;border:1px solid #729f9f;border-radius:14px;display:grid;place-items:center;font-size:25px;margin-bottom:34px;color:#b9e0d4}h1{font-size:40px;line-height:1.15;letter-spacing:-1.5px;margin:22px 0}p{margin:0 0 24px}.intro p{color:#c3d6da;max-width:320px}.steps{border-top:1px solid #3b5961;margin-top:38px;padding-top:24px;display:flex;gap:18px;font-size:12px;color:#a7c9c6}.login{background:#fff;padding:64px 44px;display:flex;flex-direction:column;justify-content:center}.label{color:#3c786a;font-size:11px;font-weight:750;letter-spacing:1.5px}h2{font-size:28px;letter-spacing:-.8px;margin:12px 0}.login p{color:#657780;font-size:14px}.button{display:flex;align-items:center;justify-content:center;gap:12px;background:#236857;color:white;text-decoration:none;border-radius:10px;padding:14px 20px;font-weight:650;transition:background .18s,box-shadow .18s}.button:hover{background:#194f43;box-shadow:0 4px 14px #23685722}.button:focus-visible{outline:3px solid #7fb6a8;outline-offset:4px}.g{background:white;color:#284752;border-radius:50%;width:24px;height:24px;text-align:center;font-weight:750;line-height:24px}.note{font-size:12px!important;margin-top:22px!important;padding-top:22px;border-top:1px solid #e8eeee}.footer{font-size:11px;color:#8a999f;margin-top:20px}@media(max-width:700px){body{padding:18px}main{grid-template-columns:1fr}.intro{padding:30px}.mark{margin-bottom:20px}h1{font-size:32px}.steps{margin-top:22px}.login{padding:32px}.intro p{max-width:none}}@media(prefers-reduced-motion:reduce){*{transition:none!important}}
 input,button{font:inherit}input[type=email]{width:100%;padding:12px;border:1px solid #bccfcd;border-radius:8px;margin:8px 0 12px}label{font-weight:600;font-size:13px}button.button{border:0;width:100%;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.divider{margin:22px 0;text-align:center;color:#657780;font-size:12px}#email-status{margin-top:14px;overflow-wrap:anywhere}[hidden]{display:none!important}
+/* Road Salt visual system v1. Shared verbatim by both products. */
+:root {
+  color-scheme: light;
+  --rs-canvas: #f4f7fa;
+  --rs-surface: #ffffff;
+  --rs-subtle: #edf2f7;
+  --rs-ink: #23344a;
+  --rs-muted: #526478;
+  --rs-line: #d6dfe8;
+  --rs-control: #718196;
+  --rs-navy: #192f50;
+  --rs-teal: #216759;
+  --rs-accent: var(--rs-navy);
+  --rs-link: #245f95;
+  --rs-focus: #125da6;
+  --rs-warning: #78530e;
+  --rs-warning-bg: #fff7e5;
+  --rs-error: #9a3128;
+  --rs-error-bg: #fff1ef;
+  --rs-radius: 8px;
+  --rs-panel-radius: 12px;
+  --rs-font: "Segoe UI", Arial, sans-serif;
+  --rs-space-1: 4px;
+  --rs-space-2: 8px;
+  --rs-space-3: 12px;
+  --rs-space-4: 16px;
+  --rs-space-5: 20px;
+  --rs-space-6: 24px;
+}
+body { font-family: var(--rs-font); color: var(--rs-ink); background: var(--rs-canvas); line-height: 1.55; }
+button, input, textarea, select { font-family: inherit; font-size: 14px; }
+button, select, input:not([type=checkbox]), .button { min-height: 44px; border-radius: var(--rs-radius); }
+button, select, input:not([type=checkbox]), textarea { border-color: var(--rs-control); }
+input, textarea, select { color: var(--rs-ink); background: var(--rs-surface); max-width: 100%; }
+input::placeholder, textarea::placeholder { color: var(--rs-muted); opacity: 1; }
+a { color: var(--rs-link); text-underline-offset: 3px; }
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--rs-focus) !important; outline-offset: 3px !important; box-shadow: 0 0 0 3px white !important;
+}
+summary { min-height: 32px; padding: 4px 0; cursor: pointer; }
+table, .metrics strong, .card strong { font-variant-numeric: tabular-nums; }
+th { font-size: 12px; color: var(--rs-muted); }
+td { font-size: 14px; }
+.table-scroll, .scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.skip-link { position: absolute; top: 8px; left: 8px; z-index: 100; transform: translateY(-160%); padding: 12px 16px; background: white; color: var(--rs-ink); border: 2px solid var(--rs-focus); border-radius: 8px; }
+.skip-link:focus { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+:root { --rs-accent: var(--rs-teal); }
+body { background: var(--rs-canvas); }
+.login { padding: 40px 32px; }
+.intro { padding: 40px 32px; }
+.brand, .label, .footer { font-size: 12px; }
+.note, .divider, label { font-size: 14px !important; }
+.login p, .footer { color: var(--rs-muted); }
+.button { background: var(--rs-teal); }
+@media(max-width:700px) { .login, .intro { padding: 24px; } }
+
 </style></head><body><main><section class="intro"><div class="mark" aria-hidden="true">≋</div><div class="brand">ROAD SALT CONTRACT MONITOR</div><h1>Clear records.<br>Confident decisions.</h1><p>Your private workspace for procurement outreach, incoming replies, and analyst review.</p><div class="steps"><span>01 · Monitor</span><span>02 · Review</span><span>03 · Follow up</span></div></section><section class="login"><div class="label">ANALYST WORKSPACE</div><h2>Welcome back.</h2><p>Sign in with Google to open your private workspace for contract outreach, replies, and message review.</p>
 <a class="button" href="/login"><span class="g" aria-hidden="true">G</span>Sign in with Google</a><p class="note">Google sign-in verifies your identity and email address only. You do not need to connect Gmail, create an OAuth client, or set up Google Cloud. Your assigned role determines what you can review and approve.</p><div class="divider">Previously invited reviewers can also use an email link</div>
 <form id="email-form"><label for="email">Work email</label><input id="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@company.com"><button class="button" id="request-link" type="submit">Email me a sign-in link</button></form>
