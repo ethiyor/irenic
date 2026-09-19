@@ -44,12 +44,23 @@ def main():
             stopping.wait(15)
     worker = threading.Thread(target=scheduler, name='outreach-scheduler', daemon=True)
     worker.start()
+    # Public sources have a separate bounded worker; Gmail/approval paths never call it.
+    def source_scheduler():
+        while not stopping.is_set():
+            try:
+                app.extensions['source_monitor'].tick()
+            except Exception:
+                logging.error('Source monitor unavailable; inspect its status. No source content logged.')
+            stopping.wait(15)
+    source_worker = threading.Thread(target=source_scheduler, name='source-monitor', daemon=True)
+    source_worker.start()
     # Waitress is one process; do not scale this SQLite deployment horizontally.
     server = create_server(app, host='0.0.0.0', port=int(os.environ.get('PORT', '8000')), threads=4,
                            max_request_body_size=65536, channel_timeout=60)
     def stop(*_):
         stopping.set()
         worker.join(timeout=25)
+        source_worker.join(timeout=1)
         server.close()
         raise SystemExit(0)
     signal.signal(signal.SIGTERM, stop)

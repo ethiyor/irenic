@@ -16,6 +16,7 @@ oauthlib==3.3.1
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
 pycparser==3.0
+pypdf==6.10.0
 requests==2.34.2
 requests-oauthlib==2.0.0
 tzdata==2026.4

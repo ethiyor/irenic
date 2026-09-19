@@ -3,3 +3,4 @@ google-auth-oauthlib>=1.2,<2
 cryptography>=46,<48
 tzdata>=2025.2
 waitress>=3,<4
+pypdf==6.10.0

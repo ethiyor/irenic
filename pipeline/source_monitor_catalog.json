@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "baseline_snapshot": "3e946cbceb28d366c33fcab17ad9231924e9a6ee64a72a6ade8b27fb1c67945f",
+  "sources": [
+    {
+      "id": "mi-compass-2027",
+      "url": "https://www.michigan.gov/dtmb/-/media/Project/Websites/dtmb/Procurement/Contracts/022/260000000713.pdf",
+      "kind": "pdf",
+      "state": "MI",
+      "sha256": "b42001c1d85bb1aa8af53b05e4da59e2a811f76be17396a0792a82e3a7a14675"
+    },
+    {
+      "id": "mi-detroit-2027",
+      "url": "https://www.michigan.gov/dtmb/-/media/Project/Websites/dtmb/Procurement/Contracts/MiDEAL/002/260000000712.pdf",
+      "kind": "pdf",
+      "state": "MI",
+      "sha256": "79cde6947d8c40afaaa6880a47e91c0cbcc4dd6d45876106c1492033bd40ce51"
+    },
+    {
+      "id": "mi-compass-history",
+      "url": "https://www.michigan.gov/dtmb/-/media/Project/Websites/dtmb/Procurement/Contracts/MiDEAL-Media/004/180000000787.pdf",
+      "kind": "pdf",
+      "state": "MI",
+      "sha256": "0476186ff4b1b9ddda5cee2923578f286aaff01593ca830dba5a54fc7a27d2c9"
+    },
+    {
+      "id": "mi-detroit-history",
+      "url": "https://www.michigan.gov/dtmb/-/media/Project/Websites/dtmb/Procurement/Contracts/MiDEAL-Media/006/180000000768.pdf",
+      "kind": "pdf",
+      "state": "MI",
+      "sha256": "5cd173a0ecf669cdeb8e3a6f3b2c13e5599f17c3785a2758f11b55a8201e9860"
+    },
+    {
+      "id": "pa-costars-2026",
+      "url": "https://www.pa.gov/content/dam/copapwp-pagov/en/dgs/documents/documents/costars/2025-2026%20sodium%20chloride%20(road%20salt)%20season%20contract.pdf",
+      "kind": "pdf",
+      "state": "PA",
+      "sha256": "e507acd5841727336a532450c04941eedaff6f6797e283064853e3c7b79bb9d9"
+    },
+    {
+      "id": "mi-road-salt-listing",
+      "url": "https://www.michigan.gov/dtmb/procurement/mideal-extended-purchasing-program/mideal-contract-search/categories/folder-2/salt-bulk-rock",
+      "kind": "listing",
+      "state": "MI"
+    },
+    {
+      "id": "pa-costars-member-listing",
+      "url": "https://www.pa.gov/agencies/dgs/programs-and-services/costars/member-information",
+      "kind": "listing",
+      "state": "PA"
+    }
+  ]
+}

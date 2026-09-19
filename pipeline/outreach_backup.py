@@ -36,7 +36,7 @@ def snapshot(roots, config, key, destination):
             for path in sorted(root.rglob('*')):
                 if path.is_symlink():
                     raise ValueError('Symlinks are not supported in private state')
-                if not path.is_file() or path.name in {'worker.lock', 'host.pid'} or path.name.endswith(('-wal','-shm','-journal')):
+                if not path.is_file() or path.name in {'worker.lock', 'host.pid'} or path.name.endswith(('-wal','-shm','-journal','.pending')):
                     continue
                 name = label+'/'+path.relative_to(root).as_posix()
                 if path.suffix == '.sqlite3':

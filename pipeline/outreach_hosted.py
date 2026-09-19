@@ -34,6 +34,7 @@ COMMAND_ROLES = {
     'disconnect': {'owner'}, 'pause': {'owner'}, 'resume': {'owner'},
     'classify': {'owner'}, 'demo_reply': {'owner'},
     'research_import': {'owner'}, 'research_decide': {'owner'}, 'research_publication': {'owner'}, 'research_receipt': {'owner'},
+    'monitor_enable': {'owner'}, 'monitor_pause': {'owner'}, 'monitor_check': {'owner'}, 'monitor_review': {'owner'},
 }
 
 
@@ -81,6 +82,9 @@ def create_app(settings=None):
     app.config.update(MAX_CONTENT_LENGTH=65536, TESTING=bool(cfg.get('testing')))
     app.extensions['outreach_service'] = auth_service
     app.extensions['outreach_workspaces'] = workspaces
+    from source_monitor import Monitor
+    monitor = Monitor(auth_service.folder, hold=auth_service.recovery_hold)
+    app.extensions['source_monitor'] = monitor
     cookie = '__Host-outreach' if parsed.scheme == 'https' else 'outreach_test'
 
     def session_id():
@@ -284,6 +288,25 @@ def create_app(settings=None):
         return send_file(BytesIO(data), mimetype='application/octet-stream', as_attachment=True,
                          download_name=name, conditional=False, etag=False)
 
+    def shared_monitor():
+        if g.workspace['id'] != 'shared':
+            abort(403)
+
+    @app.get('/api/source-monitor')
+    def monitor_view():
+        shared_monitor()
+        return jsonify(monitor.view())
+
+    @app.get('/api/source-monitor/<item>/document')
+    def monitor_document(item):
+        shared_monitor()
+        try:
+            data = monitor.document(item)
+        except ValueError as error:
+            return jsonify(error=str(error)), 400
+        return send_file(BytesIO(data), mimetype='application/pdf', as_attachment=True,
+                         download_name='unreviewed-source-'+item+'.pdf', conditional=False, etag=False)
+
     @app.get('/api/research')
     def research_view():
         from outreach_research import view
@@ -309,8 +332,12 @@ def create_app(settings=None):
         command = data.get('command')
         if not isinstance(command, str) or g.workspace['role'] not in COMMAND_ROLES.get(command, set()):
             abort(403)
+        if command.startswith('monitor_'):
+            shared_monitor()
         try:
-            if command.startswith('research_'):
+            if command.startswith('monitor_'):
+                return jsonify(monitor.control(data, g.user['email']))
+            elif command.startswith('research_'):
                 from outreach_research import mutate
                 if service.recovery_hold():
                     raise ValueError('Recovery quarantine: research changes are disabled.')
