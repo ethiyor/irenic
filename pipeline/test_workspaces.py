@@ -95,6 +95,19 @@ class WorkspaceTests(unittest.TestCase):
         self.post('resume',note='Testing pause requirement')
         self.assertEqual(self.contact().status_code,400)
 
+    def test_shared_coowners_use_original_sender_and_keep_personal_isolation(self):
+        self.cfg['allowlist'].update({'ryan@example.com':'owner','other@example.com':'owner'})
+        for email in ('ryan@example.com','other@example.com'):
+            self.login(email)
+            self.assertEqual(self.get('/api/session','shared').json['role'],'owner')
+            self.assertEqual(self.get('/api/status','shared').json['sender'],'analyst@example.invalid')
+            self.assertEqual(self.post('pause','shared',note='Co-owner review').status_code,200)
+            self.assertEqual(self.post('schedule_off','shared').status_code,200)
+            self.assertEqual(self.get('/api/operations','shared').status_code,200)
+            self.assertEqual(self.get('/api/status').json['sender'],email)
+            other = self.other if email=='ryan@example.com' else self.ryan
+            self.assertEqual(self.get('/api/status',other).status_code,403)
+
     def test_credentials_are_separate_encrypted_and_disconnect_is_scoped(self):
         a,b = self.manager.services[self.ryan], self.manager.services[self.other]
         credentials = SimpleNamespace(refresh_token='test-refresh', to_json=lambda:json.dumps({'token':'private-test'}))
