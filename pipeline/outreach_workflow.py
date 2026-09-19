@@ -45,6 +45,6 @@ def workflow(service, state):
             due=r['due'],provenance=dict(url=contact['source_url'],verified=contact['verified_on']) if contact else None,
             events=events,jobs=[dict(j,reason=JOB_REASONS.get(j['state'],'Recorded state; owner review required.')) for j in related],
             replies=[m['id'] for m in state['incoming'] if m['rid']==r['id']],documents=[d for d in docs if d['rid']==r['id']],
-            publication='No publication link recorded in this campaign ledger; evidence is not automatically published.'))
+            publication='Open Research for source-fact decisions, publication holds and any recorded snapshot receipts. Evidence is not automatically published.'))
     return dict(as_of=time.time(),counts=summary,documents=docs,timelines=timelines,
                 jobs=[dict(j,reason=JOB_REASONS.get(j['state'],'Recorded state; owner review required.')) for j in jobs])
