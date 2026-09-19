@@ -143,6 +143,21 @@ class WorkspaceTests(unittest.TestCase):
             other.assert_not_called()
             original.assert_not_called()
 
+    def test_oauth_exchange_failure_reports_safe_reference_only(self):
+        response=self.client.post('/api/connect',base_url=self.cfg['origin'],headers=self.headers,json={})
+        state=parse_qs(urlsplit(response.json['url']).query)['state'][0]
+        flow=Mock()
+        flow.fetch_token.side_effect=Warning('secret-token-and-authorization-code')
+        with patch('outreach_hosted.Flow.from_client_config',return_value=flow), self.assertLogs(self.app.logger,level='WARNING') as logs:
+            result=self.get('/oauth/callback?state='+state+'&code=test')
+        self.assertEqual(result.status_code,403)
+        self.assertIn(b'token_exchange',result.data)
+        self.assertIn(b'Return to workspace',result.data)
+        self.assertNotIn(b'secret-token',result.data)
+        self.assertNotIn('secret-token',' '.join(logs.output))
+        self.assertIn('type=Warning',' '.join(logs.output))
+        self.assertFalse(self.manager.services[self.ryan].status()['mailbox_connected'])
+
     def test_wrong_oauth_account_cannot_store_credentials(self):
         response=self.client.post('/api/connect',base_url=self.cfg['origin'],headers=self.headers,json={})
         state=parse_qs(urlsplit(response.json['url']).query)['state'][0]

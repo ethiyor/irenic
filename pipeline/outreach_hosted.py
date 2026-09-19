@@ -193,36 +193,64 @@ def create_app(settings=None):
         if not row or request.args.get('error') or not request.args.get('code'):
             abort(400)
         pending = json.loads(row['data'])
+        stage = 'token_exchange'
         try:
             flow = Flow.from_client_config(cfg['google_client'], scopes=pending['scopes'], state=state,
                                           code_verifier=pending['verifier'], redirect_uri=origin+'/oauth/callback')
             flow.fetch_token(code=request.args['code'], timeout=30)
             credentials = flow.credentials
+            stage = 'identity_verification'
             claims = id_token.verify_oauth2_token(credentials.id_token, GoogleRequest(), client['client_id'])
             email = claims.get('email', '').lower()
             if claims.get('email_verified') is not True or claims.get('nonce') != pending['nonce']:
                 raise ValueError('Identity not permitted')
             if pending['purpose'] == 'mail':
+                stage = 'account_match'
                 if not g.user or g.user['email'] != pending['email']:
                     raise ValueError('Original signed-in owner required')
                 g.workspace, g.workspace_service = workspaces.select(email, pending.get('workspace', 'shared'))
                 if not g.user or email != pending['email'] or g.workspace['role'] != 'owner':
                     raise ValueError('Owner session required')
+                stage = 'mailbox_access'
                 if Gmail(credentials.token).profile() != read_status(service.run)['sender'].lower():
                     raise ValueError('Approved sender mismatch')
+                stage = 'mail_permissions'
                 if not credentials.has_scopes(MAIL):
                     raise ValueError('Mailbox scopes missing')
+                stage = 'offline_consent'
+                if not credentials.refresh_token:
+                    raise ValueError('Offline consent missing')
+                stage = 'credential_storage'
                 with locked(service.folder):
                     service.save_credentials(credentials)
                     service.event(email, 'mailbox_connected')
             else:
+                stage = 'workspace_registration'
                 workspaces.register_verified(email)
                 g.workspace, g.workspace_service = workspaces.select(email)
+            stage = 'session_creation'
             response, _ = new_session(redirect('/?workspace='+g.workspace['id']), email)
             service.event(email, 'sign_in')
             return response
-        except Exception:
-            return 'Sign-in or mailbox connection failed. Retry sign-in and check the approved account and configuration.', 403
+        except Exception as error:
+            reference = secrets.token_hex(6)
+            # Never log exception text, codes, callback URLs, tokens or identity claims.
+            app.logger.warning('OAuth callback failed stage=%s type=%s reference=%s', stage, type(error).__name__, reference)
+            guidance = {
+                'token_exchange': 'Google could not complete the authorization exchange. Return to the workspace and start a fresh connection.',
+                'identity_verification': 'Google identity verification failed. Sign in again and start a fresh connection.',
+                'account_match': 'Choose the same Google account used to sign in and the workspace belonging to that mailbox.',
+                'mailbox_access': 'The selected account could not access the workspace mailbox. Use its matching Gmail account and grant the requested Gmail permissions.',
+                'mail_permissions': 'Both Gmail read and send permissions are required. Retry Connect Gmail and select both requested permissions.',
+                'offline_consent': 'Google did not grant continuing mailbox access. Retry Connect Gmail and complete the consent screen.',
+                'credential_storage': 'Mailbox authorization could not be saved. Contact the workspace operator with the reference below.',
+                'workspace_registration': 'Your workspace could not be opened. Contact the workspace operator with the reference below.',
+                'session_creation': 'The sign-in session could not be created. Return to the workspace and sign in again.'
+            }
+            return ('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+                    '<title>Connection needs attention | Road Salt Analyst</title><main><h1>Connection needs attention</h1><p>'
+                    + guidance[stage] + '</p><p>Reference: ' + reference + ' (' + stage + ')</p>'
+                    '<a href="/">Return to workspace</a></main></html>'), 403
 
     @app.get('/privacy')
     def privacy():
