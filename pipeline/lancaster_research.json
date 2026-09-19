@@ -1,0 +1,267 @@
+{
+  "kind": "contract_review",
+  "title": "Lancaster IFB 26-010 · contract evidence",
+  "sources": [
+    {
+      "sha256": "133119ddd73d60119301bd6d2095c290de3f43483718086ea592e8136e2e1655",
+      "mid": "1a0aa576639fb786",
+      "rid": "PA-LAN-001",
+      "message_sha256": "7017ccd21f09d5b69577ba047625f37fd75488c7172afa7f8edaa35c28725648",
+      "extraction_sha256": "4cd723e533933c2f0ac9421892836cb246f055863643e928b6e3e5923655d4c0",
+      "pages": 10,
+      "low_text_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "method": "Text extraction has only filled date fragments; visually reviewed scope p1, term p2, signatures p10. No OCR text substituted. Manual visual review recorded September 16, 2026."
+    },
+    {
+      "sha256": "4e22d65215024aa01bcd171358b002b941b273f81bfc303cce1f33219c7a172d",
+      "mid": "1a0aa576639fb786",
+      "rid": "PA-LAN-001",
+      "message_sha256": "7017ccd21f09d5b69577ba047625f37fd75488c7172afa7f8edaa35c28725648",
+      "extraction_sha256": "c8206fa35f5c7b92519765352c69115808d28a2963de05241cf90bbe8664015f",
+      "pages": 10,
+      "low_text_pages": [],
+      "method": "Text checked against rendered source pages. Manual visual review recorded September 16, 2026."
+    },
+    {
+      "sha256": "0bdb6d46b012804cbc07b3dcbf8a8385d7a4e3b5063bf25bcbb6abbc35e31b43",
+      "mid": "1a0aa576639fb786",
+      "rid": "PA-LAN-001",
+      "message_sha256": "7017ccd21f09d5b69577ba047625f37fd75488c7172afa7f8edaa35c28725648",
+      "extraction_sha256": "73c6b733a6ce4cd02c21fbf52490e5cc857c979cc63920753505b4b70c34fce2",
+      "pages": 1,
+      "low_text_pages": [],
+      "method": "Text checked against rendered source pages. Manual visual review recorded September 16, 2026."
+    },
+    {
+      "sha256": "62ae522f647d9c4e62542b6d4e006d3332568e2c586272a72b754522a0f4b955",
+      "mid": "1a0aa576639fb786",
+      "rid": "PA-LAN-001",
+      "message_sha256": "7017ccd21f09d5b69577ba047625f37fd75488c7172afa7f8edaa35c28725648",
+      "extraction_sha256": "b898413c5a27dddc1e04b31af96074521d8314c7e892f06b5595823f6641fc08",
+      "pages": 1,
+      "low_text_pages": [],
+      "method": "Text checked against rendered source pages. Manual visual review recorded September 16, 2026."
+    }
+  ],
+  "facts": [
+    {
+      "label": "Awarded supplier",
+      "value": "Eastern Salt Company, Inc.",
+      "evidence": [
+        {
+          "sha256": "0bdb6d46b012804cbc07b3dcbf8a8385d7a4e3b5063bf25bcbb6abbc35e31b43",
+          "page": 1,
+          "locator": "Agreement, Amount, Term, Funding and dated motion",
+          "fields": [
+            "buyer",
+            "vendor",
+            "award_status",
+            "unit_price_usd",
+            "maximum_bid_amount_usd",
+            "term",
+            "program"
+          ],
+          "method": "text_and_visual"
+        },
+        {
+          "sha256": "4e22d65215024aa01bcd171358b002b941b273f81bfc303cce1f33219c7a172d",
+          "page": 1,
+          "locator": "Preamble and scope item 1",
+          "fields": [
+            "buyer",
+            "vendor",
+            "contract_reference",
+            "product",
+            "agreement_date"
+          ],
+          "method": "text_and_visual"
+        }
+      ]
+    },
+    {
+      "label": "Award price (USD per source ton)",
+      "value": "83.00",
+      "evidence": [
+        {
+          "sha256": "0bdb6d46b012804cbc07b3dcbf8a8385d7a4e3b5063bf25bcbb6abbc35e31b43",
+          "page": 1,
+          "locator": "Agreement, Amount, Term, Funding and dated motion",
+          "fields": [
+            "buyer",
+            "vendor",
+            "award_status",
+            "unit_price_usd",
+            "maximum_bid_amount_usd",
+            "term",
+            "program"
+          ],
+          "method": "text_and_visual"
+        }
+      ]
+    },
+    {
+      "label": "Contract term",
+      "value": "October 1, 2026 through September 30, 2028",
+      "evidence": [
+        {
+          "sha256": "0bdb6d46b012804cbc07b3dcbf8a8385d7a4e3b5063bf25bcbb6abbc35e31b43",
+          "page": 1,
+          "locator": "Agreement, Amount, Term, Funding and dated motion",
+          "fields": [
+            "buyer",
+            "vendor",
+            "award_status",
+            "unit_price_usd",
+            "maximum_bid_amount_usd",
+            "term",
+            "program"
+          ],
+          "method": "text_and_visual"
+        },
+        {
+          "sha256": "4e22d65215024aa01bcd171358b002b941b273f81bfc303cce1f33219c7a172d",
+          "page": 2,
+          "locator": "Sections 4-6",
+          "fields": [
+            "term",
+            "incorporated_documents"
+          ],
+          "method": "text_and_visual"
+        }
+      ]
+    },
+    {
+      "label": "Estimated contract range (not annual)",
+      "value": "6,694–20,269 source tons",
+      "evidence": [
+        {
+          "sha256": "62ae522f647d9c4e62542b6d4e006d3332568e2c586272a72b754522a0f4b955",
+          "page": 1,
+          "locator": "Group 1 row; 2026-2028 quantity columns; Eastern column; AWARDED Vendors",
+          "fields": [
+            "quantity_range",
+            "price",
+            "bid_amounts",
+            "award_status"
+          ],
+          "method": "text_and_visual"
+        }
+      ]
+    },
+    {
+      "label": "Annual quantity / fiscal year",
+      "value": null,
+      "evidence": [
+        {
+          "sha256": "62ae522f647d9c4e62542b6d4e006d3332568e2c586272a72b754522a0f4b955",
+          "page": 1,
+          "locator": "Group 1 row; 2026-2028 quantity columns; Eastern column; AWARDED Vendors",
+          "fields": [
+            "quantity_range",
+            "price",
+            "bid_amounts",
+            "award_status"
+          ],
+          "method": "text_and_visual"
+        }
+      ]
+    },
+    {
+      "label": "Chemical Equipment Labs · Group 1 road rock salt, bulk",
+      "value": "Excluded: Competing quote; Group 1 awarded to Eastern. Do not allocate cooperative quantity to losing bidders.",
+      "evidence": [
+        {
+          "sha256": "62ae522f647d9c4e62542b6d4e006d3332568e2c586272a72b754522a0f4b955",
+          "page": 1,
+          "locator": "Group 1 vendor column and AWARDED Vendors"
+        }
+      ]
+    },
+    {
+      "label": "Morton · Group 1 road rock salt, bulk",
+      "value": "Excluded: Competing quote; Group 1 awarded to Eastern. Do not allocate cooperative quantity to losing bidders.",
+      "evidence": [
+        {
+          "sha256": "62ae522f647d9c4e62542b6d4e006d3332568e2c586272a72b754522a0f4b955",
+          "page": 1,
+          "locator": "Group 1 vendor column and AWARDED Vendors"
+        }
+      ]
+    },
+    {
+      "label": "American Rock Salt · Group 1 road rock salt, bulk",
+      "value": "Excluded: Competing quote; Group 1 awarded to Eastern. Do not allocate cooperative quantity to losing bidders.",
+      "evidence": [
+        {
+          "sha256": "62ae522f647d9c4e62542b6d4e006d3332568e2c586272a72b754522a0f4b955",
+          "page": 1,
+          "locator": "Group 1 vendor column and AWARDED Vendors"
+        }
+      ]
+    },
+    {
+      "label": "Chemical Equipment Labs, DE Inc. · Group 2 water treatment salt",
+      "value": "Excluded: Water treatment product outside road-salt scope.",
+      "evidence": [
+        {
+          "sha256": "133119ddd73d60119301bd6d2095c290de3f43483718086ea592e8136e2e1655",
+          "page": 1,
+          "locator": "Scope item 1 Group 2"
+        },
+        {
+          "sha256": "133119ddd73d60119301bd6d2095c290de3f43483718086ea592e8136e2e1655",
+          "page": 2,
+          "locator": "Section 4"
+        },
+        {
+          "sha256": "133119ddd73d60119301bd6d2095c290de3f43483718086ea592e8136e2e1655",
+          "page": 10,
+          "locator": "Execution blocks"
+        },
+        {
+          "sha256": "0bdb6d46b012804cbc07b3dcbf8a8385d7a4e3b5063bf25bcbb6abbc35e31b43",
+          "page": 1,
+          "locator": "Group 2 amount"
+        },
+        {
+          "sha256": "62ae522f647d9c4e62542b6d4e006d3332568e2c586272a72b754522a0f4b955",
+          "page": 1,
+          "locator": "Group 2A 2026-2028 and Chemical column"
+        }
+      ]
+    }
+  ],
+  "initial_decision": "hold",
+  "initial_reason": "Award and price verified; annual quantity, cooperative population and delivered/ton basis unresolved. Preserve as contract-level evidence, not an annual dashboard row.",
+  "blockers": [
+    "No annual quantity or season allocation. Do not annualize the two-year range.",
+    "Cooperative members and overlap with other purchasing programs unresolved.",
+    "Exact ton definition and complete delivery specifications unresolved."
+  ],
+  "diff": {
+    "proposed_additions": [],
+    "removed": [],
+    "superseded": [],
+    "public_volume_change": "0",
+    "public_price_change": "none",
+    "overlap": "No direct temporal overlap with current FY2026 COSTARS rows. County cooperative membership is absent; independence from future COSTARS populations is unresolved. Do not add range bounds to statewide or annual totals.",
+    "source_caveats": [
+      "Tentative award September 2 in bid tab vs August 19 dated motion and agreements. Use signed agreement and motion evidence; retain tentative date separately, no silent correction.",
+      "Prior 2024-2026 road range 9047-27966 appears beside current range. Exclude prior range from current award; do not combine or annualize.",
+      "Totals line says Minimum Quantity while motion uses maximum amount. Preserve both column amounts; 6694*83=555602 and 20269*83=1682327. Neither represents actual spend.",
+      "County portion $5478 is distinct from cooperative total. Do not infer county tonnage by division or call cooperative volume County-only demand.",
+      "Funding after December 31, 2026 is contingent on appropriated funds. Record term without claiming guaranteed purchases."
+    ]
+  }
+}

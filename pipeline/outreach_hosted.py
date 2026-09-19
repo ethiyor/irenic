@@ -33,6 +33,7 @@ COMMAND_ROLES = {
     'edit_draft': {'owner'}, 'schedule_on': {'owner'}, 'schedule_off': {'owner'},
     'disconnect': {'owner'}, 'pause': {'owner'}, 'resume': {'owner'},
     'classify': {'owner'}, 'demo_reply': {'owner'},
+    'research_import': {'owner'}, 'research_decide': {'owner'}, 'research_publication': {'owner'}, 'research_receipt': {'owner'},
 }
 
 
@@ -283,6 +284,23 @@ def create_app(settings=None):
         return send_file(BytesIO(data), mimetype='application/octet-stream', as_attachment=True,
                          download_name=name, conditional=False, etag=False)
 
+    @app.get('/api/research')
+    def research_view():
+        from outreach_research import view
+        return jsonify(view(service.run))
+
+    @app.get('/api/research/<candidate>/export')
+    def research_export(candidate):
+        owner()
+        from outreach_research import export_review
+        try:
+            payload = export_review(service.run, candidate)
+        except ValueError as error:
+            return jsonify(error=str(error)), 400
+        return send_file(BytesIO(json.dumps(payload, indent=2).encode()), mimetype='application/json',
+                         as_attachment=True, download_name='private-review-'+candidate+'.json',
+                         conditional=False, etag=False)
+
     @app.post('/api/action')
     def perform():
         data = request.get_json(silent=True)
@@ -292,7 +310,15 @@ def create_app(settings=None):
         if not isinstance(command, str) or g.workspace['role'] not in COMMAND_ROLES.get(command, set()):
             abort(403)
         try:
-            if command == 'add_request':
+            if command.startswith('research_'):
+                from outreach_research import mutate
+                if service.recovery_hold():
+                    raise ValueError('Recovery quarantine: research changes are disabled.')
+                with locked(service.folder):
+                    result = mutate(service.run, data, g.user['email'])
+                    service.event(g.user['email'], command)
+                return jsonify(result)
+            elif command == 'add_request':
                 add_request(service, data, g.user['email'])
             elif command in {'prepare_drafts', 'approve_send', 'edit_draft', 'reject_draft'}:
                 service.draft_action(command, data, g.user['email'])
