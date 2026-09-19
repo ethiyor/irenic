@@ -213,6 +213,8 @@ def create_app(settings=None):
 
     @app.post('/api/connect')
     def connect():
+        if g.workspace['role'] != 'owner' or g.user['email'] != read_status(service.run)['sender'].lower():
+            return jsonify(error='To connect your Gmail, choose My workspace first. The LionMail campaign uses its existing Columbia mailbox.'), 403
         return start_oauth('mail')
 
     @app.get('/oauth/callback')
@@ -225,7 +227,15 @@ def create_app(settings=None):
             if row:
                 db.execute('DELETE FROM oauth WHERE state=?', (sha(state.encode()),))
         if not row or request.args.get('error') or not request.args.get('code'):
-            abort(400)
+            reason = 'consent_cancelled' if request.args.get('error') else 'authorization_session_expired' if not row else 'authorization_code_missing'
+            reference = secrets.token_hex(6)
+            app.logger.warning('OAuth callback rejected stage=%s reference=%s', reason, reference)
+            return ('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+                    '<title>Restart Gmail connection | Road Salt Analyst</title><main><h1>Restart your connection</h1>'
+                    '<p>This authorization was cancelled, expired, already used, or started in a different sign-in session.</p>'
+                    '<p>Return to the workspace, sign in with the Gmail account you want to connect, choose My workspace, and start Connect Gmail again. '
+                    'Finish in the same browser without switching accounts in another tab.</p><p>Reference: ' + reference + ' (' + reason + ')</p>'
+                    '<a href="/">Return to workspace</a></main></html>'), 400
         pending = json.loads(row['data'])
         stage = 'token_exchange'
         try:

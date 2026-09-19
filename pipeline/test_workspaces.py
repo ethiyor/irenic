@@ -124,6 +124,26 @@ class WorkspaceTests(unittest.TestCase):
         self.assertFalse(a.status()['mailbox_connected'])
         self.assertFalse(a.status()['enabled'])
 
+    def test_shared_approver_can_connect_personal_gmail_but_not_shared(self):
+        denied=self.client.post('/api/connect',base_url=self.cfg['origin'],headers=self.headers | {'X-Workspace':'shared'},json={})
+        self.assertEqual(denied.status_code,403)
+        self.assertIn('choose My workspace',denied.json['error'])
+        allowed=self.client.post('/api/connect',base_url=self.cfg['origin'],headers=self.headers,json={})
+        self.assertEqual(allowed.status_code,200)
+        with self.auth.db() as db:
+            pending=json.loads(db.execute('SELECT data FROM oauth').fetchone()[0])
+        self.assertEqual(pending['email'],'ryan@example.com')
+        self.assertEqual(pending['workspace'],self.ryan)
+
+    def test_stale_oauth_session_has_recovery_without_accepting_code(self):
+        with patch('outreach_hosted.Flow.from_client_config') as flow:
+            result=self.get('/oauth/callback?state=expired&code=never-exchange')
+        self.assertEqual(result.status_code,400)
+        self.assertIn(b'authorization_session_expired',result.data)
+        self.assertIn(b'Return to workspace',result.data)
+        self.assertNotIn(b'never-exchange',result.data)
+        flow.assert_not_called()
+
     def test_oauth_is_bound_to_the_initiating_workspace(self):
         response=self.client.post('/api/connect',base_url=self.cfg['origin'],headers=self.headers,json={})
         self.assertEqual(response.status_code,200)

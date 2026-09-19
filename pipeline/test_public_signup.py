@@ -50,6 +50,25 @@ class PublicSignupTests(unittest.TestCase):
         self.assertFalse(status['service']['mailbox_connected'])
         self.assertFalse(status['service']['enabled'])
 
+    def test_public_user_can_connect_own_mail_without_allowlist_entry(self):
+        self.assertEqual(self.google_login().status_code,302)
+        session=self.get('/api/session').json
+        response=self.client.post('/api/connect',base_url=self.cfg['origin'],headers={
+            'Origin':self.cfg['origin'],'X-CSRF-Token':session['csrf'],
+            'X-Workspace':session['workspace']['id']},json={})
+        self.assertEqual(response.status_code,200)
+        state=parse_qs(urlsplit(response.json['url']).query)['state'][0]
+        with self.auth.db() as db:
+            pending=json.loads(db.execute('SELECT data FROM oauth WHERE state=?',(sha(state.encode()),)).fetchone()[0])
+        claims=dict(email='new@example.com',email_verified=True,nonce=pending['nonce'])
+        credentials=Mock(token='test',id_token='test',refresh_token='test')
+        credentials.has_scopes.return_value=True
+        personal=self.manager.services[session['workspace']['id']]
+        with patch('outreach_hosted.Flow.from_client_config',return_value=Mock(oauth2session=SimpleNamespace(token={}),credentials=credentials)), patch('outreach_hosted.id_token.verify_oauth2_token',return_value=claims), patch('outreach_hosted.Gmail',return_value=Mock(profile=lambda:'new@example.com')), patch.object(personal,'save_credentials') as saved, patch.object(self.auth,'save_credentials') as shared:
+            self.assertEqual(self.get('/oauth/callback?state='+state+'&code=test').status_code,302)
+            saved.assert_called_once()
+            shared.assert_not_called()
+
     def test_unverified_identity_or_wrong_nonce_creates_nothing(self):
         for verified,nonce in [(False,True),('true',True),(True,False)]:
             self.assertEqual(self.google_login(verified=verified,nonce_ok=nonce).status_code,403)
