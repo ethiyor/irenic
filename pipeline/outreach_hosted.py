@@ -26,6 +26,40 @@ from outreach_service import Service
 IDENTITY = ['openid', 'https://www.googleapis.com/auth/userinfo.email']
 MAIL = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send']
 
+class MissingGoogleScopes(ValueError):
+    pass
+
+
+def fetch_google_token(flow, code, required):
+    """Accept scope additions/Google aliases, never missing required grants.
+
+    oauthlib's scope-change Warning carries its already-parsed token. Recover
+    only that specific token type; do not exchange the one-use code again or
+    globally disable scope validation.
+    """
+    from oauthlib.oauth2.rfc6749.tokens import OAuth2Token
+
+    def scopes(value):
+        values = value.split() if isinstance(value, str) else value
+        aliases = {'email': 'https://www.googleapis.com/auth/userinfo.email',
+                   'profile': 'https://www.googleapis.com/auth/userinfo.profile'}
+        return {aliases.get(v, v) for v in (values or [])}
+
+    try:
+        flow.fetch_token(code=code, timeout=30)
+    except Warning as warning:
+        token = getattr(warning, 'token', None)
+        if not isinstance(token, OAuth2Token) or not token.scope_changed:
+            raise
+        if not scopes(required).issubset(scopes(token.get('scope'))):
+            raise MissingGoogleScopes('Required Google permissions missing') from None
+        flow.oauth2session.token = dict(token)
+    # Validate actual returned scopes, not Credentials.scopes (requested scopes).
+    granted = flow.oauth2session.token.get('scope')
+    if granted is not None and not scopes(required).issubset(scopes(granted)):
+        raise MissingGoogleScopes('Required Google permissions missing')
+
+
 # Campaign mutations are explicitly authorized; new/unknown commands fail closed.
 COMMAND_ROLES = {
     'add_request': {'owner'}, 'prepare_drafts': {'owner'},
@@ -197,7 +231,7 @@ def create_app(settings=None):
         try:
             flow = Flow.from_client_config(cfg['google_client'], scopes=pending['scopes'], state=state,
                                           code_verifier=pending['verifier'], redirect_uri=origin+'/oauth/callback')
-            flow.fetch_token(code=request.args['code'], timeout=30)
+            fetch_google_token(flow, request.args['code'], pending['scopes'])
             credentials = flow.credentials
             stage = 'identity_verification'
             claims = id_token.verify_oauth2_token(credentials.id_token, GoogleRequest(), client['client_id'])
@@ -233,6 +267,8 @@ def create_app(settings=None):
             service.event(email, 'sign_in')
             return response
         except Exception as error:
+            if isinstance(error, MissingGoogleScopes) and pending['purpose'] == 'mail':
+                stage = 'mail_permissions'
             reference = secrets.token_hex(6)
             # Never log exception text, codes, callback URLs, tokens or identity claims.
             app.logger.warning('OAuth callback failed stage=%s type=%s reference=%s', stage, type(error).__name__, reference)

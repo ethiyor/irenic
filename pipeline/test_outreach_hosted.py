@@ -192,7 +192,7 @@ class HostedTests(unittest.TestCase):
         state = parse_qs(urlsplit(response.location).query)['state'][0]
         with self.service.db() as db:
             pending = json.loads(db.execute('SELECT data FROM oauth').fetchone()[0])
-        flow = Mock(credentials=SimpleNamespace(id_token='signed-token'))
+        flow = Mock(oauth2session=SimpleNamespace(token={}), credentials=SimpleNamespace(id_token='signed-token'))
         claims = {'email': 'owner@example.com', 'email_verified': True, 'nonce': pending['nonce']}
         with patch('outreach_hosted.Flow.from_client_config', return_value=flow), patch('outreach_hosted.id_token.verify_oauth2_token', return_value=claims):
             self.assertEqual(self.get('/oauth/callback?state=wrong&code=test').status_code, 400)
@@ -212,7 +212,7 @@ class HostedTests(unittest.TestCase):
         with self.service.db() as db:
             pending = json.loads(db.execute('SELECT data FROM oauth').fetchone()[0])
         claims = {'email': 'approver@example.com', 'email_verified': True, 'nonce': pending['nonce']}
-        with patch('outreach_hosted.Flow.from_client_config', return_value=Mock(credentials=SimpleNamespace(id_token='token'))), patch('outreach_hosted.id_token.verify_oauth2_token', return_value=claims), patch.object(self.service, 'save_credentials') as save:
+        with patch('outreach_hosted.Flow.from_client_config', return_value=Mock(oauth2session=SimpleNamespace(token={}), credentials=SimpleNamespace(id_token='token'))), patch('outreach_hosted.id_token.verify_oauth2_token', return_value=claims), patch.object(self.service, 'save_credentials') as save:
             self.assertEqual(self.get('/oauth/callback?state='+state+'&code=test').status_code, 302)
             session = self.get('/api/session').json
             self.assertEqual(session['role'], 'approver')
@@ -229,7 +229,7 @@ class HostedTests(unittest.TestCase):
             with self.service.db() as db:
                 pending = json.loads(db.execute('SELECT data FROM oauth WHERE state=?', (sha(state.encode()),)).fetchone()[0])
             claims = {'email': email, 'email_verified': True, 'nonce': pending['nonce'] if nonce == 'valid' else nonce}
-            with patch('outreach_hosted.Flow.from_client_config', return_value=Mock(credentials=SimpleNamespace(id_token='token'))), patch('outreach_hosted.id_token.verify_oauth2_token', return_value=claims):
+            with patch('outreach_hosted.Flow.from_client_config', return_value=Mock(oauth2session=SimpleNamespace(token={}), credentials=SimpleNamespace(id_token='token'))), patch('outreach_hosted.id_token.verify_oauth2_token', return_value=claims):
                 self.assertEqual(self.get('/oauth/callback?state='+state+'&code=test').status_code, 403)
             self.assertEqual(self.get('/api/status').status_code, 401)
 

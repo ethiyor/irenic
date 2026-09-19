@@ -34,7 +34,7 @@ class PublicSignupTests(unittest.TestCase):
         with self.auth.db() as db:
             pending=json.loads(db.execute('SELECT data FROM oauth WHERE state=?',(sha(state.encode()),)).fetchone()[0])
         claims=dict(email=email,email_verified=verified,nonce=pending['nonce'] if nonce_ok else 'wrong')
-        with patch('outreach_hosted.Flow.from_client_config',return_value=Mock(credentials=SimpleNamespace(id_token='test'))), patch('outreach_hosted.id_token.verify_oauth2_token',return_value=claims):
+        with patch('outreach_hosted.Flow.from_client_config',return_value=Mock(oauth2session=SimpleNamespace(token={}), credentials=SimpleNamespace(id_token='test'))), patch('outreach_hosted.id_token.verify_oauth2_token',return_value=claims):
             return self.get('/oauth/callback?state='+state+'&code=test')
 
     def test_new_google_identity_gets_only_empty_private_workspace(self):

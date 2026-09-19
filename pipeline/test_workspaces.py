@@ -135,7 +135,7 @@ class WorkspaceTests(unittest.TestCase):
         claims=dict(email='ryan@example.com',email_verified=True,nonce=pending['nonce'])
         credentials=Mock(token='test',id_token='test')
         credentials.has_scopes.return_value=True
-        with patch('outreach_hosted.Flow.from_client_config',return_value=Mock(credentials=credentials)), patch('outreach_hosted.id_token.verify_oauth2_token',return_value=claims), patch('outreach_hosted.Gmail',return_value=Mock(profile=lambda:'ryan@example.com')), patch.object(a,'save_credentials') as saved, patch.object(b,'save_credentials') as other, patch.object(self.auth,'save_credentials') as original:
+        with patch('outreach_hosted.Flow.from_client_config',return_value=Mock(oauth2session=SimpleNamespace(token={}), credentials=credentials)), patch('outreach_hosted.id_token.verify_oauth2_token',return_value=claims), patch('outreach_hosted.Gmail',return_value=Mock(profile=lambda:'ryan@example.com')), patch.object(a,'save_credentials') as saved, patch.object(b,'save_credentials') as other, patch.object(self.auth,'save_credentials') as original:
             # Switching a header while consent is open cannot redirect credential storage.
             response=self.get('/oauth/callback?state='+state+'&code=test','shared')
             self.assertEqual(response.status_code,302)
@@ -164,7 +164,7 @@ class WorkspaceTests(unittest.TestCase):
         with self.auth.db() as db:
             pending=json.loads(db.execute('SELECT data FROM oauth').fetchone()[0])
         claims=dict(email='other@example.com',email_verified=True,nonce=pending['nonce'])
-        with patch('outreach_hosted.Flow.from_client_config',return_value=Mock(credentials=Mock(id_token='test'))), patch('outreach_hosted.id_token.verify_oauth2_token',return_value=claims):
+        with patch('outreach_hosted.Flow.from_client_config',return_value=Mock(oauth2session=SimpleNamespace(token={}), credentials=Mock(id_token='test'))), patch('outreach_hosted.id_token.verify_oauth2_token',return_value=claims):
             self.assertEqual(self.get('/oauth/callback?state='+state+'&code=test').status_code,403)
         self.assertFalse(self.manager.services[self.other].status()['mailbox_connected'])
 
