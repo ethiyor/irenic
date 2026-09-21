@@ -67,7 +67,7 @@ def register_email_login(app, service, cfg, session_id, new_session):
             db.execute('INSERT INTO login_attempts(session,email_hash,at) VALUES(?,?,?)',
                        (sid, sha(email.encode()), now))
             sent_count = db.execute('SELECT count(*) FROM email_login WHERE created>?', (now-3600,)).fetchone()[0]
-            if cfg['allowlist'].get(email) in {'approver', 'reviewer'} and sent_count < 30:
+            if cfg['allowlist'].get(email) in {'owner', 'approver', 'reviewer'} and sent_count < 30:
                 token = secrets.token_urlsafe(32)
                 db.execute("UPDATE email_login SET state='revoked' WHERE email=? AND state IN ('sending','sent')", (email,))
                 db.execute('INSERT INTO email_login VALUES(?,?,?,?,?,?)',
@@ -98,7 +98,7 @@ def register_email_login(app, service, cfg, session_id, new_session):
             db.execute('BEGIN IMMEDIATE')
             row = db.execute("SELECT * FROM email_login WHERE digest=? AND session=? AND state='sent' AND expires>?",
                              (sha(token.encode()), sid, now)).fetchone()
-            if not row or cfg['allowlist'].get(row['email']) not in {'approver', 'reviewer'}:
+            if not row or cfg['allowlist'].get(row['email']) not in {'owner', 'approver', 'reviewer'}:
                 return jsonify(error='Link expired, already used, or opened in a different browser. Request a new link here.'), 400
             db.execute("UPDATE email_login SET state='used' WHERE digest=?", (row['digest'],))
         response, _ = new_session(jsonify(ok=True), row['email'])

@@ -79,13 +79,32 @@ class EmailLoginTests(unittest.TestCase):
         self.assertEqual(self.auth('request-link', {}, email='approver@example.com').status_code, 403)
         self.assertEqual(self.auth('consume-link', h, token=token).status_code, 200)
 
-    def test_unknown_and_owner_addresses_cannot_get_email_access(self):
+    def test_unknown_addresses_cannot_get_email_access(self):
         h = self.guest()
         with patch.object(self.service, 'send_signin_link') as send:
-            for address in ('unknown@example.com','owner@example.com'):
+            for address in ('unknown@example.com',):
                 self.assertEqual(self.auth('request-link', h, email=address).json['message'], GENERIC)
             send.assert_not_called()
         self.assertEqual(self.get('/api/status').status_code, 401)
+
+    def test_invited_owner_can_sign_in_without_google_mailbox_consent(self):
+        h = self.guest()
+        token = self.issue(h, 'owner@example.com')
+        self.assertEqual(self.auth('consume-link', h, token=token).status_code, 200)
+        user = self.get('/api/session').json
+        self.assertEqual(user['email'], 'owner@example.com')
+        self.assertEqual(user['role'], 'owner')
+        self.assertEqual(user['workspace']['id'], 'shared')
+        self.assertFalse(self.service.status()['mailbox_connected'])
+        self.assertEqual(self.post('pause', {'Origin': self.cfg['origin'], 'X-CSRF-Token': user['csrf']}, note='Owner login regression test').status_code, 200)
+
+    def test_promotion_to_owner_preserves_pending_link_and_current_role(self):
+        h = self.guest()
+        token = self.issue(h)
+        self.cfg['allowlist']['approver@example.com'] = 'owner'
+        self.assertEqual(self.auth('consume-link', h, token=token).status_code, 200)
+        self.assertEqual(self.get('/api/session').json['role'], 'owner')
+        self.assertFalse(self.service.status()['mailbox_connected'])
 
     def test_expired_removed_and_rate_limited_links(self):
         h = self.guest()
